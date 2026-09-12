@@ -30,9 +30,9 @@ services:
   # ─────────────────────────────────────────────────────────────
   # FRONTEND SERVICE (Vite React SPA - Static Site)
   # ─────────────────────────────────────────────────────────────
-  - type: static
+  - type: web
     name: strawcrm-frontend
-    region: oregon
+    runtime: static
     rootDir: Implementation/Frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
