@@ -228,9 +228,6 @@ export default function TicketAttachments({
                   </a>
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
                     <span>{formatFileSize(att.size)}</span>
-                    <span className="inline-flex items-center gap-0.5 text-blue-600 font-mono text-[9px] font-bold bg-blue-50 border border-blue-200/80 px-1.5 py-0.2 rounded shadow-2xs">
-                      Firebase Base64
-                    </span>
                   </div>
                 </div>
 
