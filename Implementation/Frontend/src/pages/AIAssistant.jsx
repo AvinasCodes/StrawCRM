@@ -114,6 +114,7 @@ export default function AIAssistant({ onNavigate }) {
   const [summaryData, setSummaryData] = useState(null);
   const [loadingReply, setLoadingReply] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [loadingPriority, setLoadingPriority] = useState(false);
   const [copiedReply, setCopiedReply] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -158,8 +159,7 @@ export default function AIAssistant({ onNavigate }) {
         }
         setLoadingTickets(false);
       },
-      (err) => {
-        console.warn('[AIAssistant] Tickets subscription notice:', err);
+      () => {
         setLoadingTickets(false);
       }
     );
@@ -180,6 +180,7 @@ export default function AIAssistant({ onNavigate }) {
     setCopiedReply(false);
     setEmailSent(false);
     setPriorityApplied(false);
+    setLoadingPriority(false);
 
     setEditableReply('');
     setSummaryData(null);
@@ -231,6 +232,52 @@ export default function AIAssistant({ onNavigate }) {
       await Promise.allSettled([replyPromise, summaryPromise]);
     } catch (err) {
       setReplyError(err.message || 'Failed to generate AI insights.');
+    }
+  };
+
+  // Dedicated Summary Generator
+  const handleGenerateSummary = async () => {
+    if (!selectedTicket || loadingSummary) return;
+    try {
+      setActiveTab('summary');
+      setLoadingSummary(true);
+      setSummaryError(null);
+
+      const res = await getTicketAISummary(selectedTicket.ticket_id, selectedTicket);
+      if (res && res.summary) {
+        setSummaryData((prev) => ({
+          ...(prev || {}),
+          ...res,
+        }));
+      } else {
+        setSummaryError('AI service did not return a summary.');
+      }
+    } catch (err) {
+      setSummaryError(err.message || 'Failed to generate AI summary.');
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  // Dedicated Priority Evaluator
+  const handleEvaluatePriority = async () => {
+    if (!selectedTicket || loadingPriority) return;
+    try {
+      setActiveTab('priority');
+      setLoadingPriority(true);
+      setPriorityApplied(false);
+
+      const res = await getTicketAISummary(selectedTicket.ticket_id, selectedTicket);
+      if (res) {
+        setSummaryData((prev) => ({
+          ...(prev || {}),
+          ...res,
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to evaluate priority:', err);
+    } finally {
+      setLoadingPriority(false);
     }
   };
 
@@ -739,22 +786,48 @@ export default function AIAssistant({ onNavigate }) {
                   </button>
                 </div>
 
-                {/* Primary Action Capsule Button */}
-                <button
-                  type="button"
-                  disabled={loadingReply || loadingSummary}
-                  onClick={handleGenerate}
-                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:brightness-105 active:scale-[0.98] text-white text-xs font-black shadow-[2px_2px_8px_rgba(14,165,233,0.35)] flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none shrink-0"
-                >
-                  {loadingReply || loadingSummary ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5 text-white" />
-                  )}
-                  <span>
-                    {loadingReply || loadingSummary ? 'Generating Insights...' : 'Generate AI Insights'}
-                  </span>
-                </button>
+                {/* Dedicated Action Buttons for Summary & Priority */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Summary Button */}
+                  <button
+                    type="button"
+                    disabled={loadingSummary}
+                    onClick={handleGenerateSummary}
+                    title="Generate AI summary of the selected ticket"
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                      activeTab === 'summary'
+                        ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[2px_2px_8px_rgba(14,165,233,0.35)] hover:brightness-105'
+                        : 'bg-[#E8EEF5] text-slate-700 shadow-neu-btn hover:shadow-neu-card border border-white/80'
+                    }`}
+                  >
+                    {loadingSummary ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-500" />
+                    ) : (
+                      <FileText className={`w-3.5 h-3.5 ${activeTab === 'summary' ? 'text-white' : 'text-sky-600'}`} />
+                    )}
+                    <span>{loadingSummary ? 'Summarizing...' : 'Generate Summary'}</span>
+                  </button>
+
+                  {/* Priority Button */}
+                  <button
+                    type="button"
+                    disabled={loadingPriority}
+                    onClick={handleEvaluatePriority}
+                    title="Evaluate urgency, recommended SLA tier, and customer sentiment"
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                      activeTab === 'priority'
+                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[2px_2px_8px_rgba(99,102,241,0.35)] hover:brightness-105'
+                        : 'bg-[#E8EEF5] text-slate-700 shadow-neu-btn hover:shadow-neu-card border border-white/80'
+                    }`}
+                  >
+                    {loadingPriority ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                    ) : (
+                      <Zap className={`w-3.5 h-3.5 ${activeTab === 'priority' ? 'text-white' : 'text-amber-500'}`} />
+                    )}
+                    <span>{loadingPriority ? 'Evaluating...' : 'Evaluate Priority'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Viewport Content Area */}
@@ -958,9 +1031,15 @@ export default function AIAssistant({ onNavigate }) {
                           Executive Case Summary
                         </span>
                         {summaryData?.summary && (
-                          <span className="text-[10px] font-extrabold text-sky-600 bg-[#E2E9F2] px-2 py-0.5 rounded-lg border border-slate-300/40 shadow-neu-inset">
-                            Live Analysis
-                          </span>
+                          <button
+                            type="button"
+                            disabled={loadingSummary}
+                            onClick={handleGenerateSummary}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/80 text-[11px] font-extrabold text-sky-600 cursor-pointer transition-all"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${loadingSummary ? 'animate-spin' : ''}`} />
+                            <span>Regenerate Summary</span>
+                          </button>
                         )}
                       </div>
 
@@ -1018,9 +1097,22 @@ export default function AIAssistant({ onNavigate }) {
                           <p className="text-xs font-black text-slate-800">
                             No summary generated yet
                           </p>
-                          <p className="text-[11px] text-slate-500 max-w-sm mt-1">
-                            Click <strong className="text-sky-600">"Generate AI Insights"</strong> above to summarize this ticket's core issue and bullet points.
+                          <p className="text-[11px] text-slate-500 max-w-sm mt-1 mb-4">
+                            Generate an AI summary of this ticket's core issue, customer situation, and key takeaways.
                           </p>
+                          <button
+                            type="button"
+                            disabled={loadingSummary}
+                            onClick={handleGenerateSummary}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:brightness-105 active:scale-95 text-white text-xs font-black shadow-[2px_2px_8px_rgba(14,165,233,0.35)] cursor-pointer transition-all disabled:opacity-50"
+                          >
+                            {loadingSummary ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            ) : (
+                              <FileText className="w-4 h-4 text-white" />
+                            )}
+                            <span>{loadingSummary ? 'Generating Summary...' : 'Generate Summary'}</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1035,9 +1127,24 @@ export default function AIAssistant({ onNavigate }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Priority Card */}
                       <div className="rounded-2xl bg-[#E8EEF5] shadow-neu-card border border-white/60 p-4 sm:p-5 space-y-3">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
-                          AI Priority Evaluation
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                            AI Priority Evaluation
+                          </span>
+                          <button
+                            type="button"
+                            disabled={loadingPriority}
+                            onClick={handleEvaluatePriority}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-[11px] font-black shadow-sm hover:brightness-105 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            {loadingPriority ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-white" />
+                            ) : (
+                              <Zap className="w-3 h-3 text-white" />
+                            )}
+                            <span>{loadingPriority ? 'Evaluating...' : 'Evaluate Priority'}</span>
+                          </button>
+                        </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-extrabold text-slate-800">
