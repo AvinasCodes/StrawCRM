@@ -61,6 +61,7 @@ export function healTicket(t) {
 
 const LOCAL_STORAGE_KEY = 'strawcrm_tickets_cache';
 const DELETED_CUSTOMERS_STORAGE_KEY = 'strawcrm_deleted_customers';
+const DELETED_TICKETS_STORAGE_KEY = 'strawcrm_deleted_ticket_ids';
 const DUMMY_CUSTOMER_IDS = new Set(['CUST-004', 'CUST-999', 'TKT-004', 'TKT-999', '#CUST-004', '#CUST-999']);
 const DUMMY_CUSTOMER_EMAILS = new Set(['browsertest@example.com']);
 const DUMMY_CUSTOMER_SUBJECTS = new Set(['browser test ticket', 'testing extra fields']);
@@ -83,6 +84,27 @@ function persistDeletedCustomers() {
   } catch { }
 }
 
+// Tombstone set: tracks ticket IDs deleted locally so sync/snapshot can never resurrect them
+const _deletedIds = (() => {
+  const set = new Set(['TKT-004', 'TKT-999']);
+  try {
+    const raw = localStorage.getItem(DELETED_TICKETS_STORAGE_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        arr.forEach((id) => set.add(String(id).replace(/^#/, '').toUpperCase().trim()));
+      }
+    }
+  } catch { }
+  return set;
+})();
+
+function persistDeletedTicketIds() {
+  try {
+    localStorage.setItem(DELETED_TICKETS_STORAGE_KEY, JSON.stringify(Array.from(_deletedIds)));
+  } catch { }
+}
+
 let _localTickets = (() => {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -93,8 +115,9 @@ let _localTickets = (() => {
           const cid = (t.customer_id || '').toUpperCase().trim();
           const email = (t.customer_email || '').toLowerCase().trim();
           const subj = (t.subject || '').toLowerCase().trim();
-          const tid = (t.ticket_id || '').toUpperCase().trim();
+          const tid = (t.ticket_id || '').replace(/^#/, '').toUpperCase().trim();
           if (DUMMY_CUSTOMER_IDS.has(cid) || DUMMY_CUSTOMER_IDS.has(tid) || _deletedCustomerIds.has(cid)) return false;
+          if (_deletedIds.has(tid)) return false;
           if (DUMMY_CUSTOMER_EMAILS.has(email) || _deletedCustomerIds.has(email.toUpperCase())) return false;
           if (DUMMY_CUSTOMER_SUBJECTS.has(subj)) return false;
           return true;
@@ -107,8 +130,6 @@ let _localTickets = (() => {
 
 const _listeners = new Set();
 const _detailListeners = new Map(); // cleanId.toUpperCase() -> Set of callback functions
-// Tombstone set: tracks ticket IDs deleted locally so sync/snapshot can't resurrect them
-const _deletedIds = new Set(['TKT-004', 'TKT-999']);
 
 function persistLocalTickets() {
   try {
@@ -1117,6 +1138,7 @@ export async function deleteTicket(ticketId) {
 
   // 0. Mark as deleted so sync/snapshot can never resurrect it
   _deletedIds.add(upperCleanId);
+  persistDeletedTicketIds();
 
   // 1. Optimistic removal from _localTickets
   const initialCount = _localTickets.length;
@@ -1160,6 +1182,7 @@ export async function deleteTicketsBulk(ticketIds = []) {
 
   // 0. Mark all as deleted so sync/snapshot can never resurrect them
   targetUpperSet.forEach((id) => _deletedIds.add(id));
+  persistDeletedTicketIds();
 
   // 1. Optimistic removal from _localTickets
   _localTickets = _localTickets.filter(
@@ -1401,44 +1424,36 @@ export function subscribeCustomers(onUpdate, onError) {
   unsubTickets = subscribeTickets(
     {},
     (allTickets) => {
-      // Only use ticket aggregation if backend/Firestore gave us nothing
-      if (latestCustomers.length === 0) {
-        const derived = filterCleanCustomers(aggregateFromTickets(allTickets));
-        if (derived.length > 0) {
-          latestCustomers = derived;
-          onUpdate(derived);
-        }
+      // Always re-derive from live tickets to keep customers in sync with actual ticket data.
+      // This ensures that when all tickets for a customer are deleted, the customer disappears.
+      const derived = filterCleanCustomers(aggregateFromTickets(allTickets));
+
+      if (latestCustomers.length === 0 || derived.length === 0) {
+        // Pure ticket-derived data
+        latestCustomers = derived;
+        onUpdate(derived);
       } else {
-        // Update ticket counts & latest info from live ticket data
-        const ticketMap = {};
-        (allTickets || []).forEach((t) => {
-          const k = t.customer_id || t.customer_email;
-          if (!k) return;
-          if (!ticketMap[k]) ticketMap[k] = { count: 0, tickets: [], latest_date: '', latest_id: '', latest_subject: '' };
-          ticketMap[k].count += 1;
-          ticketMap[k].tickets.push(t);
-          if (new Date(t.created_at) > new Date(ticketMap[k].latest_date)) {
-            ticketMap[k].latest_date = t.created_at;
-            ticketMap[k].latest_id = t.ticket_id;
-            ticketMap[k].latest_subject = t.subject;
-          }
+        // Merge: keep extra metadata from backend/Firestore but use ticket-derived counts
+        const derivedMap = new Map();
+        derived.forEach((c) => derivedMap.set(c.customer_id || c.customer_email, c));
+
+        // Only keep customers that still have live tickets
+        const merged = [];
+        derivedMap.forEach((ticketDerived, key) => {
+          // Find matching backend customer for richer metadata
+          const existing = latestCustomers.find(
+            (c) => (c.customer_id || c.customer_email) === key
+          );
+          merged.push({
+            ...(existing || {}),
+            ...ticketDerived,
+          });
         });
-        const updated = filterCleanCustomers(latestCustomers.map((c) => {
-          const k = c.customer_id || c.customer_email;
-          const td = ticketMap[k];
-          if (!td) return c;
-          return {
-            ...c,
-            ticket_count: td.count,
-            tickets: td.tickets,
-            latest_ticket_id: td.latest_id || c.latest_ticket_id,
-            latest_ticket_date: td.latest_date || c.latest_ticket_date,
-            latest_subject: td.latest_subject || c.latest_subject,
-          };
-        }));
-        updated.sort((a, b) => new Date(b.latest_ticket_date || 0) - new Date(a.latest_ticket_date || 0));
-        latestCustomers = updated;
-        onUpdate(updated);
+
+        const cleaned = filterCleanCustomers(merged);
+        cleaned.sort((a, b) => new Date(b.latest_ticket_date || 0) - new Date(a.latest_ticket_date || 0));
+        latestCustomers = cleaned;
+        onUpdate(cleaned);
       }
     },
     onError

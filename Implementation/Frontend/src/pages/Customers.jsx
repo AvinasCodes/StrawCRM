@@ -21,8 +21,12 @@ import MinimalDeleteButton from '../components/ui/MinimalDeleteButton';
 import CustomerTicketHistoryPanel from '../components/customers/CustomerTicketHistoryPanel';
 import TicketDetailModal from '../components/tickets/TicketDetailModal';
 
-// Lightweight deduplication helpers
-const getCustomerTicketCount = (c) => c.ticket_count || (c.tickets ? c.tickets.length : 1);
+// Deduplication & Ticket counting helpers
+const getCustomerTicketCount = (c) => {
+  if (typeof c.ticket_count === 'number') return c.ticket_count;
+  if (Array.isArray(c.tickets)) return c.tickets.length;
+  return 0;
+};
 
 const hasCustomerOpenTickets = (c) =>
   (c.tickets || []).some((t) => {
@@ -72,18 +76,25 @@ export default function Customers({ onNavigate }) {
   const fetchDirectFromBackend = async () => {
     try {
       const serverList = await listCustomers({ search: debouncedSearch });
-      if (Array.isArray(serverList) && serverList.length > 0) {
+      if (Array.isArray(serverList)) {
         const cleanList = serverList.filter((c) => {
           const cid = (c.customer_id || '').toUpperCase();
           const email = (c.customer_email || '').toLowerCase();
           const name = (c.customer_name || '').toLowerCase();
           if (cid === 'CUST-004' || cid === 'CUST-999') return false;
           if (email.includes('browsertest') || name.includes('browsertest')) return false;
+          const count = getCustomerTicketCount(c);
+          if (count === 0) return false;
           return true;
         });
+        if (cleanList.length === 0) return;
         setCustomers((prev) => {
           const map = new Map();
-          prev.forEach((c) => map.set(c.customer_id || c.customer_email, c));
+          prev.forEach((c) => {
+            if (getCustomerTicketCount(c) > 0) {
+              map.set(c.customer_id || c.customer_email, c);
+            }
+          });
           cleanList.forEach((c) => {
             const k = c.customer_id || c.customer_email;
             map.set(k, { ...map.get(k), ...c });
@@ -101,8 +112,10 @@ export default function Customers({ onNavigate }) {
 
     const unsubscribeCustomers = subscribeCustomers(
       (liveCustomers) => {
-        if (liveCustomers && liveCustomers.length > 0) {
-          setCustomers(liveCustomers);
+        if (Array.isArray(liveCustomers)) {
+          // Filter out customers with 0 active tickets
+          const withTickets = liveCustomers.filter((c) => getCustomerTicketCount(c) > 0);
+          setCustomers(withTickets);
         }
         setLoading(false);
       },
@@ -115,8 +128,12 @@ export default function Customers({ onNavigate }) {
     const unsubscribeTickets = subscribeTickets(
       {},
       (liveTickets) => {
-        if (liveTickets) {
+        if (Array.isArray(liveTickets)) {
           setAllTickets(liveTickets);
+          // If all tickets in CRM are deleted, customer accounts list is immediately cleared
+          if (liveTickets.length === 0) {
+            setCustomers([]);
+          }
         }
       },
       () => { }

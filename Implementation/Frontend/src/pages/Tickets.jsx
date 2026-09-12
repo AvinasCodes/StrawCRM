@@ -129,17 +129,24 @@ export default function Tickets({ onNavigate }) {
     if (!ticket || !ticket.ticket_id) return;
 
     const id = ticket.ticket_id;
+
+    // Optimistic removal — immediately hide from UI before Firestore propagates
+    setTickets((prev) => prev.filter((t) => t.ticket_id !== id));
+    if (selectedTicketId === id) setSelectedTicketId(null);
+
+    setToastMessage({
+      text: `Ticket #${id} moved to trash`,
+      ticket,
+    });
+    setTimeout(() => {
+      setToastMessage((curr) => (curr?.ticket?.ticket_id === id ? null : curr));
+    }, 5000);
+
     try {
       await deleteTicket(id);
-      if (selectedTicketId === id) setSelectedTicketId(null);
-      setToastMessage({
-        text: `Ticket #${id} moved to trash`,
-        ticket,
-      });
-      setTimeout(() => {
-        setToastMessage((curr) => (curr?.ticket?.ticket_id === id ? null : curr));
-      }, 5000);
     } catch (err) {
+      // Rollback: re-add if delete failed
+      setTickets((prev) => [...prev, ticket]);
       alert(err.message || 'Failed to delete ticket');
     }
   };
