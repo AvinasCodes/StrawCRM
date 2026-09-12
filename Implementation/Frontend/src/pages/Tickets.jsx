@@ -447,11 +447,11 @@ export default function Tickets({ onNavigate }) {
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
-          2. FILTER & SEARCH TOOLBAR (Neumorphic Inset / Raised Surfaces)
+          2. FILTER & SEARCH TOOLBAR (Neumorphic Inset / Raised Surfaces in One Row)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2.5">
+      <div className="shrink-0 flex items-center gap-2 sm:gap-2.5 w-full overflow-x-auto no-scrollbar py-0.5">
         {/* Sunken Search Input */}
-        <div className="relative w-full sm:w-64 lg:w-72 shrink-0 group/search">
+        <div className="relative w-48 sm:w-56 lg:w-64 shrink-0 group/search">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500 group-hover/search:text-sky-600 group-focus-within/search:text-sky-600 transition-colors z-20">
             <Search className="w-4 h-4 stroke-[2.3] transition-transform duration-200 group-hover/search:scale-110 group-focus-within/search:scale-110" />
           </div>
@@ -482,98 +482,96 @@ export default function Tickets({ onNavigate }) {
           </div>
         </div>
 
-        {/* Status Tabs, Agent Filter, & Time Dropdown */}
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {/* Segmented Status Tabs in Sunken Track */}
-          <div className="flex items-center gap-0.5 bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 shrink-0">
-            {['All Status', 'Open', 'In Progress', 'Closed'].map((status) => {
-              const active = selectedStatus === status;
-              return (
+        {/* Segmented Status Tabs in Sunken Track */}
+        <div className="flex items-center gap-0.5 bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 shrink-0">
+          {['All Status', 'Open', 'In Progress', 'Closed'].map((status) => {
+            const active = selectedStatus === status;
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setSelectedStatus(status)}
+                className={`px-2.5 py-1.5 rounded-xl transition-all duration-150 cursor-pointer text-xs shrink-0 ${active
+                  ? 'bg-[#E8EEF5] text-sky-600 font-extrabold shadow-neu-btn border border-white/80'
+                  : 'text-slate-600 hover:text-slate-900 font-medium'
+                  }`}
+              >
+                {status}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* My Tickets Quick Pill */}
+        <button
+          type="button"
+          onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'me' ? 'all' : 'me')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border shrink-0 ${selectedAgentFilter === 'me'
+            ? 'bg-emerald-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(16,185,129,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
+            : 'bg-[#E8EEF5] text-emerald-700 border-white/80 shadow-neu-btn hover:shadow-neu-card'
+            }`}
+          title="Show tickets assigned to me"
+        >
+          <span>⭐ My Tickets</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'me'
+              ? 'bg-emerald-800 text-white'
+              : 'bg-[#E2E9F2] shadow-neu-inset text-emerald-800'
+              }`}
+          >
+            {myTicketsCount}
+          </span>
+        </button>
+
+        {/* Team Pool (Unassigned) Quick Pill */}
+        <button
+          type="button"
+          onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'unassigned' ? 'all' : 'unassigned')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border shrink-0 ${selectedAgentFilter === 'unassigned'
+            ? 'bg-amber-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(217,119,6,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
+            : 'bg-[#E8EEF5] text-amber-800 border-white/80 shadow-neu-btn hover:shadow-neu-card'
+            }`}
+          title="Show tickets in unassigned team pool"
+        >
+          <span>👥 Team Pool</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'unassigned'
+              ? 'bg-amber-800 text-white'
+              : 'bg-[#E2E9F2] shadow-neu-inset text-amber-900'
+              }`}
+          >
+            {unassignedTicketsCount}
+          </span>
+        </button>
+
+        {/* Time Range Custom Dropdown */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer transition-all shrink-0"
+          >
+            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+            <span>{selectedTimeRange}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+          </button>
+
+          {timeDropdownOpen && (
+            <div className="origin-top-right absolute right-0 mt-2 w-44 rounded-2xl bg-[#E8EEF5] shadow-neu-card border border-white/80 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
+              {timeRangeOptions.map((opt) => (
                 <button
-                  key={status}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setSelectedStatus(status)}
-                  className={`px-2.5 py-1.5 rounded-xl transition-all duration-150 cursor-pointer text-xs shrink-0 ${active
-                    ? 'bg-[#E8EEF5] text-sky-600 font-extrabold shadow-neu-btn border border-white/80'
-                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                    }`}
+                  onClick={() => {
+                    setSelectedTimeRange(opt.value);
+                    setTimeDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-xs transition-colors flex items-center justify-between ${selectedTimeRange === opt.value
+                    ? 'bg-[#E2E9F2] text-sky-600 font-extrabold shadow-neu-inset'
+                    : 'text-slate-700 hover:bg-white/40 font-medium'
+                  }`}
                 >
-                  {status}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* My Tickets Quick Pill */}
-          <button
-            type="button"
-            onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'me' ? 'all' : 'me')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border shrink-0 ${selectedAgentFilter === 'me'
-              ? 'bg-emerald-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(16,185,129,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
-              : 'bg-[#E8EEF5] text-emerald-700 border-white/80 shadow-neu-btn hover:shadow-neu-card'
-              }`}
-            title="Show tickets assigned to me"
-          >
-            <span>⭐ My Tickets</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'me'
-                ? 'bg-emerald-800 text-white'
-                : 'bg-[#E2E9F2] shadow-neu-inset text-emerald-800'
-                }`}
-            >
-              {myTicketsCount}
-            </span>
-          </button>
-
-          {/* Team Pool (Unassigned) Quick Pill */}
-          <button
-            type="button"
-            onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'unassigned' ? 'all' : 'unassigned')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border shrink-0 ${selectedAgentFilter === 'unassigned'
-              ? 'bg-amber-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(217,119,6,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
-              : 'bg-[#E8EEF5] text-amber-800 border-white/80 shadow-neu-btn hover:shadow-neu-card'
-              }`}
-            title="Show tickets in unassigned team pool"
-          >
-            <span>👥 Team Pool</span>
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'unassigned'
-                ? 'bg-amber-800 text-white'
-                : 'bg-[#E2E9F2] shadow-neu-inset text-amber-900'
-                }`}
-            >
-              {unassignedTicketsCount}
-            </span>
-          </button>
-
-          {/* Time Range Custom Dropdown */}
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer transition-all shrink-0"
-            >
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>{selectedTimeRange}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-            </button>
-
-            {timeDropdownOpen && (
-              <div className="origin-top-right absolute right-0 mt-2 w-44 rounded-2xl bg-[#E8EEF5] shadow-neu-card border border-white/80 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
-                {timeRangeOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setSelectedTimeRange(opt.value);
-                      setTimeDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-2 text-xs transition-colors flex items-center justify-between ${selectedTimeRange === opt.value
-                      ? 'bg-[#E2E9F2] text-sky-600 font-extrabold shadow-neu-inset'
-                      : 'text-slate-700 hover:bg-white/40 font-medium'
-                      }`}
-                  >
-                    <span>{opt.label}</span>
+                  <span>{opt.label}</span>
                     {selectedTimeRange === opt.value && (
                       <span className="w-2 h-2 rounded-full bg-sky-500" />
                     )}
@@ -596,7 +594,6 @@ export default function Tickets({ onNavigate }) {
             </button>
           )}
         </div>
-      </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────
           3. MAIN VIEWPORT: RETRO TICKET CARDS GRID vs TABLE VIEW (Neumorphic Card)
