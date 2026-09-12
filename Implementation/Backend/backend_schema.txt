@@ -1,0 +1,279 @@
+STRAWCRM BACKEND SCHEMA
+========================
+
+STACK
+-----
+Backend: Python + FastAPI
+Database: Google Cloud Firestore (Real-Time Document Store)
+File Storage: FastAPI Local / Render Persistent Uploads (/uploads/)
+AI: Gemini API
+Hosting: Render / Railway
+
+DATABASE (FIRESTORE COLLECTIONS)
+--------------------------------
+COLLECTION: tickets
+
+id              Document ID (e.g., TKT-001)
+ticket_id       STRING UNIQUE NOT NULL (e.g., 'TKT-001')
+customer_name   STRING NOT NULL
+customer_email  STRING NOT NULL
+subject         STRING NOT NULL
+description     STRING NOT NULL
+status          STRING NOT NULL DEFAULT 'Open'
+attachments     ARRAY OF OBJECTS (name, size, type, url, created_at)
+created_at      ISO 8601 TIMESTAMP NOT NULL
+updated_at      ISO 8601 TIMESTAMP NOT NULL
+
+Allowed status:
+Open
+In Progress
+Closed
+
+
+SUBCOLLECTION: tickets/{ticket_id}/notes
+
+id              Document ID (e.g., note_1789008756)
+ticket_id       STRING NOT NULL
+note_text       STRING NOT NULL
+author_name     STRING (e.g., 'Aaryan Singh')
+author_email    STRING (e.g., 'admin@datastraw.in')
+created_at      ISO 8601 TIMESTAMP NOT NULL
+
+Relationship:
+tickets (1) : (N) tickets/{ticket_id}/notes
+
+
+SQL EQUIVALENT SCHEMA (FOR SPEC PARITY)
+---------------------------------------
+
+CREATE TABLE tickets (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id VARCHAR(20) UNIQUE NOT NULL,
+    customer_name VARCHAR(150) NOT NULL,
+    customer_email VARCHAR(255) NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Open',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT tickets_status_check
+        CHECK (status IN ('Open', 'In Progress', 'Closed'))
+);
+
+CREATE TABLE notes (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id VARCHAR(20) NOT NULL,
+    note_text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT notes_ticket_fk
+        FOREIGN KEY (ticket_id)
+        REFERENCES tickets(ticket_id)
+        ON DELETE CASCADE
+);
+
+
+PYDANTIC SCHEMAS
+----------------
+
+TicketStatus:
+    Open
+    In Progress
+    Closed
+
+TicketCreate:
+    customer_name
+    customer_email
+    subject
+    description
+
+TicketUpdate:
+    status
+    notes (optional)
+
+TicketListItem:
+    ticket_id
+    customer_name
+    subject
+    status
+    created_at
+
+TicketResponse:
+    ticket_id
+    customer_name
+    customer_email
+    subject
+    description
+    status
+    created_at
+    updated_at
+    notes
+    attachments
+
+
+REST API
+--------
+
+POST /api/tickets
+Create a ticket.
+
+GET /api/tickets
+List all tickets.
+
+GET /api/tickets?search=rahul
+Search tickets by ticket ID, customer name, email, subject, or description.
+
+GET /api/tickets?status=Open
+Filter tickets by status.
+
+GET /api/tickets?status=Open&search=rahul
+Search and filter together.
+
+GET /api/tickets/{ticket_id}
+Get ticket details and notes.
+
+PUT /api/tickets/{ticket_id}
+Update ticket status and optionally add a note.
+
+POST /api/upload
+Upload a ticket attachment (images, logs, documents up to 50MB) and receive a static hosted URL.
+
+GET /api/dashboard/summary
+Get operational metrics, KPI counts, and recent tickets.
+
+GET /api/analytics/overview
+Get aggregated support metrics and resolution statistics.
+
+
+EXAMPLE CREATE REQUEST
+----------------------
+
+POST /api/tickets
+
+{
+    "customer_name": "Rahul Sharma",
+    "customer_email": "rahul@example.com",
+    "subject": "Order delayed",
+    "description": "My order has not arrived yet."
+}
+
+
+EXAMPLE UPDATE REQUEST
+----------------------
+
+PUT /api/tickets/TKT-001
+
+{
+    "status": "In Progress",
+    "notes": "Checking delivery status with courier."
+}
+
+
+BACKEND FOLDER STRUCTURE
+------------------------
+
+backend/
+|
++-- app/
+|   +-- main.py
+|   +-- routes/
+|   |   +-- tickets.py
+|   |   +-- upload.py
+|   |   +-- ai.py
+|   |   +-- dashboard.py
+|   |   +-- analytics.py
+|   |   +-- auth.py
+|   +-- schemas/
+|   |   +-- ticket.py
+|   |   +-- ai.py
+|   +-- services/
+|   |   +-- ticket_service.py
+|   |   +-- ai_service.py
+|   +-- database/
+|   |   +-- firestore_client.py
+|   +-- core/
+|       +-- config.py
+|       +-- security.py
+|
++-- uploads/
++-- requirements.txt
++-- .env
++-- .env.example
++-- README.md
+
+
+VALIDATION
+----------
+
+- Customer name required
+- Valid email required
+- Subject required
+- Description required
+- Status must be Open, In Progress, or Closed
+- Ticket ID must exist before update
+- Notes cannot be empty
+- Ticket ID must be unique
+- New tickets default to Open
+- Timestamps generated automatically
+- File upload enforced up to 50 MB with sanitized filenames
+
+
+AI ENDPOINTS
+------------
+
+POST /api/tickets/{ticket_id}/ai-summary
+
+POST /api/tickets/{ticket_id}/ai-reply
+
+AI flow:
+
+React
+  |
+  v
+FastAPI
+  |
+  v
+Fetch Ticket
+  |
+  v
+Gemini API
+  |
+  v
+FastAPI
+  |
+  v
+React
+
+Gemini API key must exist only on the backend.
+
+
+ENVIRONMENT VARIABLES
+---------------------
+
+FIREBASE_PROJECT_ID=strawcrm-98ee3
+GEMINI_API_KEY=
+FRONTEND_URL=
+
+Frontend:
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_API_BASE_URL=
+
+
+CORE BACKEND
+------------
+
+The backend must support:
+
+1. Ticket creation
+2. Ticket listing
+3. Search
+4. Status filtering
+5. Ticket details
+6. Status updates
+7. Notes
+8. Server-side validation
+9. Error handling
+10. Google Cloud Firestore (Real-time and offline sync)
+11. Gemini AI summary and smart replies
+12. Static attachment uploads (/api/upload -> /uploads/)

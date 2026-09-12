@@ -1,0 +1,15 @@
+{
+  "name": "strawcrm-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StrawCRM - Next-Gen Customer Relationship & Support Management Platform",
+  "scripts": {
+    "dev": "npm run dev --prefix Implementation/Frontend",
+    "start": "npm run dev --prefix Implementation/Frontend",
+    "build": "npm run build --prefix Implementation/Frontend",
+    "frontend": "npm run dev --prefix Implementation/Frontend",
+    "backend": "cd Implementation/Backend && python -m uvicorn app.main:app --reload --port 8000",
+    "test:backend": "cd Implementation/Backend && python -m pytest",
+    "test": "npm run test:backend"
+  }
+}

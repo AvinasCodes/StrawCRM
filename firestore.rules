@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Tickets collection rules & validation
+    match /tickets/{ticketId} {
+      allow read: if true; // Internal support CRM read access
+      allow create: if request.resource.data.customer_name is string
+                    && request.resource.data.subject is string
+                    && request.resource.data.description is string;
+      allow update: if request.resource.data.status in ['Open', 'In Progress', 'Closed'];
+      allow delete: if isAuthenticated();
+
+      // Notes subcollection (1:N relation with ticket)
+      match /notes/{noteId} {
+        allow read: if true;
+        allow create: if request.resource.data.note_text is string;
+        allow update, delete: if isAuthenticated();
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+rules_version = '2';
+
+// Craft rules based on data in your Firestore database
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Ticket attachments folder: tickets/{ticketId}/{fileName}
+    match /tickets/{ticketId}/{fileName} {
+      // Allow reading by anyone (or authenticated agents)
+      allow read: if true;
+      
+      // Allow uploading files up to 10MB
+      allow write: if request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // General fallback rule
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
