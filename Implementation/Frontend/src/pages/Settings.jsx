@@ -350,6 +350,8 @@ export default function SettingsPage({ onNavigate }) {
                       Display Name
                     </label>
                     <input
+                      id="profile-display-name"
+                      name="displayName"
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
@@ -363,6 +365,8 @@ export default function SettingsPage({ onNavigate }) {
                       Account Email
                     </label>
                     <input
+                      id="profile-account-email"
+                      name="accountEmail"
                       type="email"
                       disabled
                       value={user?.email || 'agent@strawcrm.com'}
@@ -377,6 +381,8 @@ export default function SettingsPage({ onNavigate }) {
                     </label>
                     <div className="relative">
                       <input
+                        id="profile-user-role"
+                        name="userRole"
                         type="text"
                         value={userRole}
                         onChange={(e) => handleRoleChange(e.target.value)}
@@ -752,6 +758,8 @@ export default function SettingsPage({ onNavigate }) {
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
+                  id="agent-search-input"
+                  name="agentSearch"
                   type="text"
                   value={agentSearch}
                   onChange={(e) => setAgentSearch(e.target.value)}

@@ -160,12 +160,13 @@ async def get_current_user(
                     detail="Authentication token has expired. Please sign in again.",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            logger.debug("Token expired in development mode, falling through to claims decoder")
         except Exception as err:
             logger.debug("Live Firebase token verification failed: %s", err)
 
     # 3. Development / Multi-user Fallback: Decode token claims directly so any authenticated user is recognized
     try:
-        unverified = jwt.decode(token, options={"verify_signature": False})
+        unverified = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
         if unverified.get("sub") or unverified.get("user_id") or unverified.get("email"):
             return {
                 "sub": unverified.get("user_id") or unverified.get("sub") or "usr_authenticated",

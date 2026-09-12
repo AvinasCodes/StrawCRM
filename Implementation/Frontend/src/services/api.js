@@ -72,6 +72,29 @@ async function request(endpoint, options = {}, timeoutMs = 8000) {
     // Backend successfully reached
     backendOnline = true;
 
+    // If 401 received, attempt one automatic force-refresh of Firebase token and retry
+    if (response.status === 401 && !options._retried && isConfigured && auth && auth.currentUser) {
+      try {
+        const freshToken = await auth.currentUser.getIdToken(true);
+        if (freshToken) {
+          return await request(
+            endpoint,
+            {
+              ...options,
+              _retried: true,
+              headers: {
+                ...options.headers,
+                Authorization: `Bearer ${freshToken}`,
+              },
+            },
+            timeoutMs
+          );
+        }
+      } catch (refreshErr) {
+        console.warn('[api.js] Token auto-refresh failed:', refreshErr);
+      }
+    }
+
     if (!response.ok) {
       let errorMessage = 'Something went wrong. Please try again.';
 

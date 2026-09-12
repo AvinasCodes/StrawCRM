@@ -1378,7 +1378,18 @@ export function subscribeCustomers(onUpdate, onError) {
     fetch(`${API_BASE_URL}/api/customers`, {
       headers: { Authorization: headers.Authorization, Accept: 'application/json' },
     })
-      .then((res) => (res.ok ? res.json() : null))
+      .then(async (res) => {
+        if (res.status === 401 && isConfigured && auth && auth.currentUser) {
+          try {
+            const freshToken = await auth.currentUser.getIdToken(true);
+            const retryRes = await fetch(`${API_BASE_URL}/api/customers`, {
+              headers: { Authorization: `Bearer ${freshToken}`, Accept: 'application/json' },
+            });
+            return retryRes.ok ? retryRes.json() : null;
+          } catch {}
+        }
+        return res.ok ? res.json() : null;
+      })
       .then((serverCustomers) => {
         if (Array.isArray(serverCustomers) && serverCustomers.length > 0) {
           // Merge with any Firestore data (backend is more complete for ticket counts)

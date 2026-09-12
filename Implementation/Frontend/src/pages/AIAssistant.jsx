@@ -812,6 +812,8 @@ export default function AIAssistant({ onNavigate }) {
                       </label>
                       <div className="flex items-center gap-2">
                         <input
+                          id="ai-instructions-input"
+                          name="aiInstructions"
                           type="text"
                           value={instructions}
                           onChange={(e) => setInstructions(e.target.value)}
@@ -1165,6 +1167,8 @@ export default function AIAssistant({ onNavigate }) {
                       <div className="space-y-2">
                         <div className="relative">
                           <input
+                            id="ai-custom-prompt-input"
+                            name="customPrompt"
                             type="text"
                             value={customPrompt}
                             onChange={(e) => setCustomPrompt(e.target.value)}
@@ -1301,6 +1305,8 @@ export default function AIAssistant({ onNavigate }) {
                       {emailCustomerName || 'Valued Customer'}
                     </span>
                     <input
+                      id="email-customer-recipient-input"
+                      name="emailCustomerRecipient"
                       type="email"
                       value={emailCustomerRecipient}
                       onChange={(e) => setEmailCustomerRecipient(e.target.value)}
@@ -1321,6 +1327,8 @@ export default function AIAssistant({ onNavigate }) {
                   Subject Line
                 </label>
                 <input
+                  id="email-modal-subject-input"
+                  name="emailModalSubject"
                   type="text"
                   value={emailModalSubject}
                   onChange={(e) => setEmailModalSubject(e.target.value)}
@@ -1336,6 +1344,8 @@ export default function AIAssistant({ onNavigate }) {
                   Response Preview
                 </label>
                 <textarea
+                  id="email-modal-message-body"
+                  name="emailModalMessage"
                   rows={6}
                   value={emailModalMessage}
                   onChange={(e) => setEmailModalMessage(e.target.value)}

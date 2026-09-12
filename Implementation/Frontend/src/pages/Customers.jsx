@@ -350,6 +350,8 @@ export default function Customers({ onNavigate }) {
             <Search className="w-4 h-4" />
           </div>
           <input
+            id="customers-search-input"
+            name="customersSearch"
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

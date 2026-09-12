@@ -456,6 +456,8 @@ export default function Tickets({ onNavigate }) {
             <Search className="w-4 h-4 stroke-[2.3] transition-transform duration-200 group-hover/search:scale-110 group-focus-within/search:scale-110" />
           </div>
           <input
+            id="tickets-search-input"
+            name="ticketsSearch"
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
