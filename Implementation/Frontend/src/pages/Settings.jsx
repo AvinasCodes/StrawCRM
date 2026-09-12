@@ -280,7 +280,7 @@ export default function SettingsPage({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 bg-[#E8EEF5] text-slate-900 overflow-y-auto p-4 sm:p-5 lg:p-6 no-scrollbar w-full">
+    <main className="flex-1 flex flex-col h-full min-h-0 bg-[#E8EEF5] text-slate-900 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 no-scrollbar w-full">
       <div className="max-w-7xl mx-auto w-full h-full flex flex-col min-h-0 space-y-4">
         {/* Header Section (Full Width, No Neumorphism mention) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-300/40">

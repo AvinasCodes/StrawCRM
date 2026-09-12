@@ -286,43 +286,34 @@ export default function Dashboard({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 max-w-7xl mx-auto w-full no-scrollbar bg-[#E8EEF5] text-slate-800">
+    <main className="flex-1 min-h-0 p-3 sm:p-6 lg:p-8 pb-24 md:pb-8 overflow-y-auto space-y-4 sm:space-y-6 max-w-7xl mx-auto w-full no-scrollbar bg-[#E8EEF5] text-slate-800">
       {/* ─────────────────────────────────────────────────────────────────────────
-          1. DASHBOARD HEADER
+          1. DASHBOARD HEADER (Responsive Mobile Optimized)
       ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 pb-3 border-b border-slate-300/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              {getGreeting()}, {displayName} 👋
+      <div className="shrink-0 pb-2.5 border-b border-slate-300/40 flex items-center justify-between gap-2.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight truncate">
+              {getGreeting()}, {displayName.split(' ')[0]} 👋
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-[#E8EEF5] text-emerald-700 shadow-neu-btn border border-white/80">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-[#E8EEF5] text-emerald-700 shadow-neu-btn border border-white/80 shrink-0">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               Verified
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1 font-semibold">
-            Here&apos;s what&apos;s happening with your support tickets today.
+          <p className="text-[11px] sm:text-xs text-slate-500 font-semibold truncate mt-0.5">
+            Real-time support operations overview
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          {/* Top-Right CTA: + Create Ticket */}
-          <button
-            type="button"
-            onClick={() => {
-              if (onNavigate) {
-                setCreateModalOpen(true);
-              } else {
-                setCreateModalOpen(true);
-              }
-            }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-black shadow-[3px_3px_12px_rgba(14,165,233,0.35),-2px_-2px_8px_rgba(255,255,255,0.9)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Create Ticket</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setCreateModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-black shadow-[3px_3px_10px_rgba(14,165,233,0.35),-2px_-2px_6px_rgba(255,255,255,0.9)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+          <span>New Ticket</span>
+        </button>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────────────────

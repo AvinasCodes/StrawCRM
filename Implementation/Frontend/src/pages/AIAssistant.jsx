@@ -452,13 +452,13 @@ export default function AIAssistant({ onNavigate }) {
   const customerInitial = (selectedTicket?.customer_name || 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="h-full flex-1 min-h-0 flex flex-col p-2.5 sm:p-5 overflow-y-auto lg:overflow-hidden w-full bg-[#E8EEF5] text-slate-800 font-sans select-none">
+    <div className="h-full flex-1 min-h-0 flex flex-col p-2.5 sm:p-5 pb-24 md:pb-5 overflow-y-auto lg:overflow-hidden w-full bg-[#E8EEF5] text-slate-800 font-sans select-none">
       {/* ─────────────────────────────────────────────────────────────────────────
-          1. COMPACT TOP HEADER (Minimal Neumorphic Strip)
+          1. COMPACT TOP HEADER (Mobile Optimized)
          ───────────────────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 pb-3 sm:pb-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-sky-600 flex items-center justify-center shrink-0">
+      <header className="shrink-0 pb-2 sm:pb-3 flex items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-sky-600 flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 fill-sky-600/20" />
           </div>
           <div>
@@ -470,14 +470,14 @@ export default function AIAssistant({ onNavigate }) {
                 Copilot
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
+            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden sm:block">
               Analyze tickets, generate responses, and summarize support issues in seconds.
             </p>
           </div>
         </div>
 
         {/* Header Right Controls */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => syncFromBackend()}
@@ -488,8 +488,8 @@ export default function AIAssistant({ onNavigate }) {
           </button>
 
           {/* Quick Ticket Counter */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-[11px] font-bold text-slate-600">
-            <Ticket className="w-3.5 h-3.5 text-sky-600" />
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-[10px] sm:text-[11px] font-bold text-slate-600">
+            <Ticket className="w-3 h-3 text-sky-600" />
             <span>{tickets.length} Available</span>
           </div>
         </div>

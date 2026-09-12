@@ -62,31 +62,29 @@ export default function AppShell({ currentPath, onNavigate, children }) {
 
   return (
     <div className="h-screen max-h-screen w-full bg-[#F7F9FC] flex flex-col md:flex-row text-slate-900 font-sans overflow-hidden relative">
-      {/* Mobile Top Header (hides on scroll down, displays on scroll up) */}
+      {/* Mobile Top Header (LOCKED / PERMANENTLY PINNED AT TOP ON MOBILE) */}
       <header
-        className={`md:hidden flex items-center justify-between px-4 py-3 bg-[#011662] text-white border-b border-[#011E79] shrink-0 z-30 transition-transform duration-300 ease-in-out ${
-          isNavVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
-        }`}
+        className="md:hidden flex items-center justify-between px-4 h-13 bg-[#011662] text-white border-b border-[#011E79] shrink-0 z-40 shadow-sm select-none"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Open sidebar navigation"
-            className="p-1.5 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 cursor-pointer"
+            className="p-1.5 rounded-xl text-blue-200 hover:text-white hover:bg-white/10 active:bg-white/20 transition-all cursor-pointer"
           >
             <Menu className="w-5 h-5" />
           </button>
           <div
-            className="flex items-center gap-1.5 font-bold tracking-tight text-white text-sm cursor-pointer"
+            className="flex items-center gap-1.5 font-black tracking-tight text-white text-base cursor-pointer"
             onClick={() => onNavigate && onNavigate('/dashboard')}
           >
             <span>Straw</span>
-            <span className="text-brand-cyan">CRM</span>
+            <span className="text-sky-400">CRM</span>
           </div>
         </div>
 
-        <span className="text-[10px] bg-brand-electric px-2 py-0.5 rounded-full font-semibold">
+        <span className="text-[10px] bg-brand-electric px-2.5 py-0.5 rounded-full font-bold shadow-xs">
           Active
         </span>
       </header>
@@ -99,21 +97,18 @@ export default function AppShell({ currentPath, onNavigate, children }) {
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
-
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative pb-16 md:pb-0">
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
         {children}
       </div>
 
-      {/* Mobile Bottom Tab Bar (YouTube Mobile Style Hide & Display on Scroll) */}
+      {/* Mobile Bottom Tab Bar (LOCKED / PERMANENTLY PINNED AT BOTTOM ON MOBILE) */}
       <nav
         aria-label="Mobile Navigation Bar"
-        className={`md:hidden fixed bottom-0 inset-x-0 bg-[#011662]/95 backdrop-blur-md border-t border-[#011E79] text-white z-30 transition-all duration-300 ease-in-out px-2 py-1 shadow-2xl ${
+        className={`md:hidden fixed bottom-0 inset-x-0 bg-[#011662]/95 backdrop-blur-md border-t border-[#011E79] text-white z-40 px-2 py-1.5 shadow-[0_-4px_20px_rgba(1,22,98,0.4)] transition-transform duration-200 select-none ${
           mobileSidebarOpen
             ? 'opacity-0 pointer-events-none translate-y-full'
-            : isNavVisible
-            ? 'translate-y-0 opacity-100'
-            : 'translate-y-full pointer-events-none'
+            : 'opacity-100 translate-y-0'
         }`}
       >
         <div className="flex items-center justify-around">

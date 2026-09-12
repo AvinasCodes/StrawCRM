@@ -245,37 +245,37 @@ export default function Customers({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 p-4 sm:p-5 lg:p-6 overflow-y-auto lg:overflow-hidden max-w-7xl mx-auto w-full relative bg-[#E8EEF5] text-slate-800">
+    <main className="flex-1 flex flex-col h-full min-h-0 p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 overflow-y-auto lg:overflow-hidden max-w-7xl mx-auto w-full relative bg-[#E8EEF5] text-slate-800">
       {/* ─────────────────────────────────────────────────────────────────────────
-          1. HEADER & ACTIONS
+          1. HEADER & ACTIONS (Mobile Optimized)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 pb-3 border-b border-slate-300/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="shrink-0 pb-2.5 border-b border-slate-300/40 flex items-center justify-between gap-2.5">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
               Customer Accounts
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black bg-[#E8EEF5] text-sky-700 shadow-neu-btn border border-white/80">
-              <Users className="w-3.5 h-3.5 text-sky-600" />
-              {stats.total} Total
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-[#E8EEF5] text-sky-700 shadow-neu-btn border border-white/80">
+              <Users className="w-3 h-3 text-sky-600" />
+              {stats.total}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1 font-semibold">
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-semibold hidden sm:block">
             Directory of verified customer profiles, deterministic IDs, and ticket history.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Refresh Button */}
           <button
             type="button"
             onClick={handleRefresh}
             aria-label="Refresh customers directory"
             title="Sync latest customers from backend"
-            className="p-2.5 rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
+            className="p-2 sm:p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
           >
             <RotateCcw
-              className={`w-4 h-4 ${refreshing || loading ? 'animate-spin text-sky-600' : ''}`}
+              className={`w-3.5 h-3.5 ${refreshing || loading ? 'animate-spin text-sky-600' : ''}`}
             />
           </button>
 
@@ -283,9 +283,9 @@ export default function Customers({ onNavigate }) {
           <button
             type="button"
             onClick={() => onNavigate && onNavigate('/tickets/create')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-black shadow-[3px_3px_12px_rgba(14,165,233,0.35),-2px_-2px_8px_rgba(255,255,255,0.9)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-black shadow-[3px_3px_10px_rgba(14,165,233,0.35),-2px_-2px_6px_rgba(255,255,255,0.9)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shrink-0"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>New Ticket</span>
           </button>
         </div>
@@ -294,7 +294,7 @@ export default function Customers({ onNavigate }) {
       {/* ─────────────────────────────────────────────────────────────────────────
           2. CONTEXTUAL METRICS OVERVIEW (KPI Mini-Cards)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-3.5 my-3.5">
+      <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 my-2.5 sm:my-3.5">
         {/* Total Customers */}
         <div className="bg-[#E8EEF5] rounded-2xl shadow-neu-card border border-white/80 p-4 flex items-center gap-3.5 hover:shadow-neu-card-hover transition-all">
           <div className="w-11 h-11 rounded-2xl bg-[#E2E9F2] shadow-neu-inset border border-sky-100/50 text-sky-600 flex items-center justify-center shrink-0">

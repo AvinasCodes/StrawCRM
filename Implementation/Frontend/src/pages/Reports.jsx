@@ -220,7 +220,7 @@ export default function Reports({ onNavigate }) {
 
   return (
     <main
-      className={`flex-1 flex flex-col h-full min-h-0 p-4 sm:p-6 ${
+      className={`flex-1 flex flex-col h-full min-h-0 p-3 sm:p-6 pb-24 md:pb-8 ${
         isSidebarPinned ? 'xl:p-7' : 'lg:p-8'
       } overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full bg-[#E8EEF5] text-slate-800 font-sans selection:bg-brand-electric/20 selection:text-brand-electric`}
     >

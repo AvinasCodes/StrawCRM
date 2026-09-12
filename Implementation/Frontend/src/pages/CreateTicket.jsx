@@ -323,31 +323,31 @@ export default function CreateTicket({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-[#E8EEF5] text-slate-900 p-4 sm:p-5 lg:p-6 no-scrollbar w-full overflow-y-auto">
+    <main className="flex-1 flex flex-col min-h-0 bg-[#E8EEF5] text-slate-900 p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 no-scrollbar w-full overflow-y-auto">
       <div className="w-full max-w-7xl mx-auto flex flex-col min-h-0">
         {/* ─────────────────────────────────────────────────────────────────────────
-            1. HEADER & BREADCRUMB (Clean, full width, no Neumorphism badge)
+            1. HEADER & BREADCRUMB (Mobile Optimized)
            ───────────────────────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-300/40 shrink-0">
-          <div className="flex items-center gap-3.5">
+        <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-slate-300/40 shrink-0">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleCancel}
-              className="w-10 h-10 rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 flex items-center justify-center text-slate-600 hover:text-sky-600 transition-all cursor-pointer shrink-0"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 flex items-center justify-center text-slate-600 hover:text-sky-600 transition-all cursor-pointer shrink-0"
               title="Back to Tickets"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="text-xs font-bold text-slate-400">Tickets</span>
                 <span className="text-xs text-slate-400">/</span>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  Create Support Ticket
+                <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight">
+                  New Ticket
                 </h1>
               </div>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                Dispatch a customer ticket directly into the StrawCRM queue with live tracking.
+              <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-0.5 hidden sm:block">
+                Dispatch a customer ticket directly into the StrawCRM queue.
               </p>
             </div>
           </div>
