@@ -175,11 +175,11 @@ export default function Sidebar({
       {!isPinned && (
         <div
           onMouseEnter={handleMouseEnter}
-          className="hidden md:flex fixed inset-y-0 left-0 w-8 hover:w-12 z-40 items-center justify-start cursor-pointer group transition-all duration-150"
-          title="Move arrow here to reveal sidebar"
+          className="hidden md:flex fixed inset-y-0 left-0 w-3 hover:w-8 z-40 items-center justify-start cursor-pointer group transition-all duration-150"
+          title="Move cursor here to reveal sidebar"
         >
-          <div className="h-28 w-2 rounded-r-2xl bg-[#0f2e7c] shadow-[0_0_14px_rgba(20,60,160,0.6)] border border-blue-400/35 group-hover:w-3.5 group-hover:border-blue-400 group-hover:shadow-[0_0_20px_rgba(56,189,248,0.8)] transition-all flex items-center justify-center">
-            <ChevronRight className="w-4 h-4 text-[#38bdf8] opacity-80 group-hover:opacity-100 transition-opacity -ml-0.5" />
+          <div className="h-16 w-1 rounded-r-full bg-slate-400/30 group-hover:w-2 group-hover:bg-gradient-to-r group-hover:from-sky-500 group-hover:to-blue-600 transition-all flex items-center justify-center shadow-xs">
+            <ChevronRight className="w-3 h-3 text-white opacity-0 group-hover:opacity-100 transition-opacity -ml-0.5" />
           </div>
         </div>
       )}
@@ -188,8 +188,10 @@ export default function Sidebar({
       <aside
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-gradient-to-b from-[#143f9e] via-[#0e2e7c] to-[#09205c] text-white flex flex-col justify-between px-2.5 py-3.5 h-full border-r border-blue-400/25 shadow-[10px_0_30px_rgba(7,20,55,0.6)] transition-transform duration-200 ease-out will-change-transform shrink-0 font-sans overflow-y-auto no-scrollbar ${
-          mobileOpen || isPinned || isHovered ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-gradient-to-b from-[#143f9e] via-[#0e2e7c] to-[#09205c] text-white flex flex-col justify-between px-2.5 py-3.5 h-full border-r border-blue-400/25 transition-all duration-200 ease-out will-change-transform shrink-0 font-sans overflow-y-auto no-scrollbar ${
+          mobileOpen || isPinned || isHovered
+            ? 'translate-x-0 opacity-100 shadow-[10px_0_30px_rgba(7,20,55,0.6)] pointer-events-auto'
+            : '-translate-x-full opacity-0 shadow-none pointer-events-none'
         } ${isPinned ? 'md:static md:shadow-none' : ''}`}
       >
         <div className="w-full">
