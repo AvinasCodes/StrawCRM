@@ -1197,6 +1197,22 @@ export default function AIAssistant({ onNavigate }) {
                               : `Apply "${summaryData?.suggested_priority || 'Medium'}" to Ticket`}
                           </span>
                         </button>
+
+                        <button
+                          type="button"
+                          disabled={loadingPriority}
+                          onClick={handleEvaluatePriority}
+                          className="w-full py-2 px-3.5 rounded-xl text-xs font-bold text-slate-700 hover:text-sky-700 bg-[#E8EEF5] hover:bg-white/60 active:shadow-neu-btn-pressed shadow-neu-btn hover:shadow-neu-card border border-white/80 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {loadingPriority ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5 text-sky-500" />
+                          )}
+                          <span>
+                            {loadingPriority ? 'Evaluating Ticket Priority...' : 'Evaluate Priority'}
+                          </span>
+                        </button>
                       </div>
 
                       {/* Sentiment Gauge Card */}
