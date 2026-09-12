@@ -398,7 +398,7 @@ export default function Tickets({ onNavigate }) {
     selectedAgentFilter !== 'all';
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 w-full bg-[#E8EEF5] text-slate-800 p-4 sm:p-5 lg:p-6 space-y-4 no-scrollbar max-w-7xl mx-auto overflow-y-auto lg:overflow-hidden">
+    <main className="flex-1 flex flex-col h-full min-h-0 w-full bg-[#E8EEF5] text-slate-800 p-4 sm:p-5 lg:p-6 space-y-4 no-scrollbar w-full overflow-y-auto lg:overflow-hidden transition-all duration-200">
       {/* ─────────────────────────────────────────────────────────────────────────
           1. HEADER WITH STATS & ACTIONS (Neumorphic Soft UI)
          ───────────────────────────────────────────────────────────────────────── */}

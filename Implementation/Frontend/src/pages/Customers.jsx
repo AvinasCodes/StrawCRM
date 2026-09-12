@@ -245,7 +245,7 @@ export default function Customers({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 overflow-y-auto lg:overflow-hidden max-w-7xl mx-auto w-full relative bg-[#E8EEF5] text-slate-800">
+    <main className="flex-1 flex flex-col h-full min-h-0 p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 overflow-y-auto lg:overflow-hidden w-full relative bg-[#E8EEF5] text-slate-800 transition-all duration-200">
       {/* ─────────────────────────────────────────────────────────────────────────
           1. HEADER & ACTIONS (Mobile Optimized)
          ───────────────────────────────────────────────────────────────────────── */}

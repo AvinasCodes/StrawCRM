@@ -286,7 +286,7 @@ export default function Dashboard({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 max-w-7xl mx-auto w-full no-scrollbar bg-[#E8EEF5] text-slate-800">
+    <main className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 w-full no-scrollbar bg-[#E8EEF5] text-slate-800 transition-all duration-200">
       {/* ─────────────────────────────────────────────────────────────────────────
           1. DASHBOARD HEADER
       ───────────────────────────────────────────────────────────────────────── */}

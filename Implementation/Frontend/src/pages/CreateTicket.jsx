@@ -324,7 +324,7 @@ export default function CreateTicket({ onNavigate }) {
 
   return (
     <main className="flex-1 flex flex-col min-h-0 bg-[#E8EEF5] text-slate-900 p-4 sm:p-5 lg:p-6 no-scrollbar w-full overflow-y-auto">
-      <div className="w-full max-w-7xl mx-auto flex flex-col min-h-0">
+      <div className="w-full flex flex-col min-h-0 transition-all duration-200">
         {/* ─────────────────────────────────────────────────────────────────────────
             1. HEADER & BREADCRUMB (Clean, full width, no Neumorphism badge)
            ───────────────────────────────────────────────────────────────────────── */}
