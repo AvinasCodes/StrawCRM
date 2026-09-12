@@ -108,8 +108,12 @@ export default function AppShell({ currentPath, onNavigate, children }) {
       {/* Mobile Bottom Tab Bar (YouTube Mobile Style Hide & Display on Scroll) */}
       <nav
         aria-label="Mobile Navigation Bar"
-        className={`md:hidden fixed bottom-0 inset-x-0 bg-[#011662]/95 backdrop-blur-md border-t border-[#011E79] text-white z-40 transition-transform duration-300 ease-in-out px-2 py-1 shadow-2xl ${
-          isNavVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+        className={`md:hidden fixed bottom-0 inset-x-0 bg-[#011662]/95 backdrop-blur-md border-t border-[#011E79] text-white z-30 transition-all duration-300 ease-in-out px-2 py-1 shadow-2xl ${
+          mobileSidebarOpen
+            ? 'opacity-0 pointer-events-none translate-y-full'
+            : isNavVisible
+            ? 'translate-y-0 opacity-100'
+            : 'translate-y-full pointer-events-none'
         }`}
       >
         <div className="flex items-center justify-around">

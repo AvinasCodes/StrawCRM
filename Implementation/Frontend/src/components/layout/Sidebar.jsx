@@ -165,7 +165,7 @@ export default function Sidebar({
       {mobileOpen &&
         createPortal(
           <div
-            className="fixed inset-0 bg-[#071330]/75 z-40 md:hidden animate-in fade-in duration-150"
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs z-50 md:hidden animate-in fade-in duration-200"
             onClick={onCloseMobile}
           />,
           document.body
@@ -188,7 +188,7 @@ export default function Sidebar({
       <aside
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-[#143f9e] via-[#0e2e7c] to-[#09205c] text-white flex flex-col justify-between px-2.5 py-3.5 h-full border-r border-blue-400/25 shadow-[10px_0_30px_rgba(7,20,55,0.6)] transition-transform duration-200 ease-out will-change-transform shrink-0 font-sans ${
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-gradient-to-b from-[#143f9e] via-[#0e2e7c] to-[#09205c] text-white flex flex-col justify-between px-2.5 py-3.5 h-full border-r border-blue-400/25 shadow-[10px_0_30px_rgba(7,20,55,0.6)] transition-transform duration-200 ease-out will-change-transform shrink-0 font-sans overflow-y-auto no-scrollbar ${
           mobileOpen || isPinned || isHovered ? 'translate-x-0' : '-translate-x-full'
         } ${isPinned ? 'md:static md:shadow-none' : ''}`}
       >

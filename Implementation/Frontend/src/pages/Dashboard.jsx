@@ -414,7 +414,7 @@ export default function Dashboard({ onNavigate }) {
         {/* Filters Group */}
         <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
           {/* Status Quick Filter Tabs */}
-          <div className="flex items-center gap-1 bg-[#E2E9F2] shadow-neu-inset p-1.5 rounded-2xl border border-white/60 text-xs font-bold">
+          <div className="flex items-center gap-1 bg-[#E2E9F2] shadow-neu-inset p-1.5 rounded-2xl border border-white/60 text-xs font-bold overflow-x-auto no-scrollbar max-w-full shrink-0">
             {['All', 'Open', 'In Progress', 'Closed'].map((status) => (
               <button
                 key={status}

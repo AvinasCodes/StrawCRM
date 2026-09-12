@@ -398,7 +398,7 @@ export default function Tickets({ onNavigate }) {
     selectedAgentFilter !== 'all';
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 w-full bg-[#E8EEF5] text-slate-800 p-4 sm:p-5 lg:p-6 space-y-4 no-scrollbar max-w-7xl mx-auto overflow-hidden">
+    <main className="flex-1 flex flex-col h-full min-h-0 w-full bg-[#E8EEF5] text-slate-800 p-4 sm:p-5 lg:p-6 space-y-4 no-scrollbar max-w-7xl mx-auto overflow-y-auto lg:overflow-hidden">
       {/* ─────────────────────────────────────────────────────────────────────────
           1. HEADER WITH STATS & ACTIONS (Neumorphic Soft UI)
          ───────────────────────────────────────────────────────────────────────── */}
@@ -481,9 +481,9 @@ export default function Tickets({ onNavigate }) {
         </div>
 
         {/* Status Tabs, Agent Filter, & Time Dropdown */}
-        <div className="flex items-center gap-2.5 self-start lg:self-auto flex-wrap">
+        <div className="flex items-center gap-2.5 self-stretch sm:self-auto flex-wrap">
           {/* Segmented Status Tabs in Sunken Track */}
-          <div className="flex items-center gap-1 bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60">
+          <div className="flex items-center gap-1 bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 overflow-x-auto no-scrollbar max-w-full">
             {['All Status', 'Open', 'In Progress', 'Closed'].map((status) => {
               const active = selectedStatus === status;
               return (
@@ -491,7 +491,7 @@ export default function Tickets({ onNavigate }) {
                   key={status}
                   type="button"
                   onClick={() => setSelectedStatus(status)}
-                  className={`px-3 py-1.5 rounded-xl transition-all duration-150 cursor-pointer text-xs ${active
+                  className={`px-3 py-1.5 rounded-xl transition-all duration-150 cursor-pointer text-xs shrink-0 ${active
                       ? 'bg-[#E8EEF5] text-sky-600 font-extrabold shadow-neu-btn border border-white/80'
                       : 'text-slate-600 hover:text-slate-900 font-medium'
                     }`}

@@ -282,14 +282,14 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[480px] bg-[#E8EEF5] text-slate-800 rounded-2xl shadow-2xl border border-slate-300/70 overflow-hidden flex flex-col transition-all"
+        className="w-full max-w-[480px] max-h-[92vh] bg-[#E8EEF5] text-slate-800 rounded-2xl shadow-2xl border border-slate-300/70 overflow-hidden flex flex-col transition-all"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-300/60 bg-[#E2E9F2]/70">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-300/60 bg-[#E2E9F2]/70 shrink-0">
           <div>
             <h2 id="modal-title" className="text-sm font-extrabold text-slate-900 tracking-tight">
               Create Support Ticket
@@ -309,7 +309,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-3.5 space-y-2.5">
+        <form onSubmit={handleSubmit} className="p-3.5 space-y-2.5 overflow-y-auto no-scrollbar flex-1">
           {error && (
             <div className="flex items-start gap-2 p-2.5 rounded-xl bg-[#E2E9F2] border border-rose-400/50 text-rose-700 text-xs font-bold animate-in fade-in shadow-xs">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rose-500" />
