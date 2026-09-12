@@ -29,7 +29,8 @@ import {
 } from './db';
 import { getAuthToken } from '../services/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const _rawApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
 const MAX_RETRIES = 3;
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -6,7 +6,8 @@
  * Eliminates local ephemeral blob URLs and local disk dependencies.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const _rawApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
 // Firestore document size limit is 1MB. Files up to 800 KB encode cleanly within document boundaries.
 const MAX_BASE64_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
