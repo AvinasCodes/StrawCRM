@@ -15,6 +15,7 @@ import AIAssistant from './pages/AIAssistant';
 import Reports from './pages/Reports';
 import SettingsPage from './pages/Settings';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+import MobileNotice from './components/ui/MobileNotice';
 
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
@@ -104,6 +105,7 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary>
+      <MobileNotice />
       <AuthProvider>
         <TeamChatProvider>
           <AppContent />
