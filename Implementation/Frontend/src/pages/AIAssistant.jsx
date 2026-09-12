@@ -405,6 +405,13 @@ export default function AIAssistant({ onNavigate }) {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
+  const handleCopyReply = () => {
+    if (!editableReply) return;
+    navigator.clipboard.writeText(editableReply);
+    setCopiedReply(true);
+    setTimeout(() => setCopiedReply(false), 2000);
+  };
+
   const handleInsertToReply = (msgId, text) => {
     if (!text) return;
     const cleanText = stripMarkdownAsterisks(text);
