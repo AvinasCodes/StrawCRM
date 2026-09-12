@@ -686,13 +686,13 @@ export default function AIAssistant({ onNavigate }) {
               className="flex-1 min-h-0 flex flex-col bg-[#EEF4FA]/40 overflow-visible lg:overflow-hidden"
             >
               {/* Studio Header Toolbar */}
-              <div className="shrink-0 px-3 sm:px-6 py-2.5 sm:py-3 bg-[#E2E9F2]/70 border-b border-slate-300/40 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+              <div className="shrink-0 px-3 sm:px-5 py-2.5 bg-[#E2E9F2]/70 border-b border-slate-300/40 flex flex-wrap items-center justify-between gap-2.5">
                 {/* Segmented Neumorphic Tab Bar */}
-                <div className="flex items-center bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 text-xs font-bold gap-1 overflow-x-auto no-scrollbar w-full sm:w-auto">
+                <div className="flex items-center bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 text-xs font-bold gap-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => setActiveTab('response')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'response'
+                    className={`py-1.5 px-2.5 sm:px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'response'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
                       }`}
@@ -704,7 +704,7 @@ export default function AIAssistant({ onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('summary')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'summary'
+                    className={`py-1.5 px-2.5 sm:px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'summary'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
                       }`}
@@ -716,19 +716,20 @@ export default function AIAssistant({ onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('priority')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'priority'
+                    className={`py-1.5 px-2.5 sm:px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'priority'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
                     <BarChart2 className="w-3.5 h-3.5" />
-                    <span>Priority & Sentiment</span>
+                    <span className="hidden xl:inline">Priority & Sentiment</span>
+                    <span className="xl:hidden">Priority</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActiveTab('custom')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'custom'
+                    className={`py-1.5 px-2.5 sm:px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'custom'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
                       }`}
@@ -743,7 +744,7 @@ export default function AIAssistant({ onNavigate }) {
                   type="button"
                   disabled={loadingReply || loadingSummary}
                   onClick={handleGenerate}
-                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:brightness-105 active:scale-[0.98] text-white text-xs font-black shadow-[2px_2px_8px_rgba(14,165,233,0.35)] flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none w-full sm:w-auto shrink-0"
+                  className="px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:brightness-105 active:scale-[0.98] text-white text-xs font-black shadow-[2px_2px_8px_rgba(14,165,233,0.35)] flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none shrink-0"
                 >
                   {loadingReply || loadingSummary ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
