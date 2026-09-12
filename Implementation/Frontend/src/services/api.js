@@ -258,10 +258,15 @@ export async function deleteTicketsBulk(ticketIds) {
 // Gemini AI Service APIs (Configured via VITE_GEMINI_API_KEY)
 // ─────────────────────────────────────────────────────────────────────────────
 async function callDirectGemini(prompt) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) return null;
-
-  for (const model of ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash']) {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 'REDACTED_GEMINI_FRONTEND_KEY';
+  for (const model of [
+    'gemini-3.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-flash-lite-latest',
+    'gemini-3.1-flash-lite',
+    'gemini-3.7-flash',
+    'gemini-3.8-flash',
+  ]) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const res = await fetch(url, {

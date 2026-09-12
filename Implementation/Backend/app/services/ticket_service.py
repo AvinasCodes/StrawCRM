@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from app.database.firestore_client import FirestoreClient
 from app.schemas.ticket import TicketCreate, TicketUpdate, NoteCreate
 from app.services.email_service import EmailService
+from app.core.config import settings
 
 logger = logging.getLogger("strawcrm.tickets")
 
@@ -53,6 +54,43 @@ class TicketService:
         
         # Check if created with an assigned agent -> notify agent
         agent_email, agent_name = TicketService.resolve_agent_email(ticket)
+
+        # If ticket was created unassigned, auto-assign to primary agent/admin so it is never orphaned
+        if not agent_email:
+            fallback_agent = None
+            try:
+                from app.routes.users import _ensure_users_db
+                users_map = _ensure_users_db()
+                for u in users_map.values():
+                    u_email = (u.get("email") or "").strip()
+                    if u_email and EmailService.is_valid_email(u_email):
+                        fallback_agent = u
+                        break
+            except Exception as e:
+                logger.warning("[TicketService] Auto-assign agent lookup error: %s", e)
+
+            if not fallback_agent and settings.SMTP_USER and EmailService.is_valid_email(settings.SMTP_USER):
+                fallback_agent = {
+                    "email": settings.SMTP_USER,
+                    "name": settings.SMTP_FROM_NAME or "Lead Administrator",
+                    "id": "agent_admin",
+                }
+
+            if fallback_agent:
+                agent_email = fallback_agent["email"]
+                agent_name = fallback_agent.get("name", "Support Agent")
+                agent_id = fallback_agent.get("id", "")
+                ticket = FirestoreClient.update_ticket(
+                    ticket["ticket_id"],
+                    assigned_to_name=agent_name,
+                    assigned_to_email=agent_email,
+                    assigned_to_id=agent_id,
+                )
+                logger.info(
+                    "[TicketService] Ticket #%s auto-assigned to %s <%s>",
+                    ticket.get("ticket_id"), agent_name, agent_email
+                )
+
         if agent_email:
             try:
                 sent = EmailService.send_assignment_notification(ticket, agent_email, agent_name)

@@ -41,11 +41,14 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
 
   // Active Agents directory for assignment
   const activeAgents = useMemo(() => getActiveAgents(user), [user]);
-  const [assignedAgentId, setAssignedAgentId] = useState(''); // '' means Unassigned
+  const defaultAgent = useMemo(() => {
+    return activeAgents.find((a) => a.isCurrentUser) || activeAgents[0] || null;
+  }, [activeAgents]);
+  const [assignedAgentId, setAssignedAgentId] = useState('');
 
   const assignedAgent = useMemo(() => {
-    return activeAgents.find((a) => a.id === assignedAgentId) || null;
-  }, [activeAgents, assignedAgentId]);
+    return activeAgents.find((a) => a.id === assignedAgentId) || defaultAgent || null;
+  }, [activeAgents, assignedAgentId, defaultAgent]);
 
   // Dynamic Existing Categories fetched from live tickets + standard categories
   const [existingCategories, setExistingCategories] = useState(DEFAULT_CATEGORIES);
@@ -127,7 +130,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       setCategory('');
       setCategorySuggestions([]);
       setShowCategorySuggestions(false);
-      setAssignedAgentId('');
+      setAssignedAgentId(defaultAgent?.id || '');
       setPriority('Medium');
       setDescription('');
       setPendingFiles([]);
@@ -221,11 +224,12 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       user?.id ||
       (user?.email ? user.email.split('@')[0] : `usr_${customerName.trim().toLowerCase().replace(/\s+/g, '_')}`);
 
-    const selectedAgent = activeAgents.find((a) => a.id === assignedAgentId);
-    const assignedToName = selectedAgent
-      ? (selectedAgent.rawName || selectedAgent.name)
-      : null;
-    const assignedToEmail = selectedAgent?.email || null;
+    const targetAgent = activeAgents.find((a) => a.id === assignedAgentId) || defaultAgent;
+    const assignedToName = targetAgent
+      ? (targetAgent.rawName || targetAgent.name)
+      : creatorName;
+    const assignedToEmail = targetAgent?.email || user?.email || '';
+    const assignedToId = targetAgent?.id || creatorId;
 
     const ticketData = {
       customer_name: customerName.trim(),
@@ -235,7 +239,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       priority: priority || 'Medium',
       assigned_to_name: assignedToName || '',
       assigned_to_email: assignedToEmail || '',
-      assigned_to_id: selectedAgent?.id || '',
+      assigned_to_id: assignedToId || '',
       description: description.trim(),
       attachments: uploadedAttachments,
       raised_by_name: creatorName,
@@ -246,11 +250,11 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       { ticketData, tempId, mutationId },
       {
         onSuccess: (res) => {
-          if (selectedAgent && selectedAgent.email) {
+          if (targetAgent && targetAgent.email) {
             dispatchAssignmentNotification({
               ticket: res || ticketData,
-              agentName: selectedAgent.name,
-              agentEmail: selectedAgent.email,
+              agentName: targetAgent.name,
+              agentEmail: targetAgent.email,
             });
           }
           if (onSuccess) onSuccess(res);
@@ -260,11 +264,11 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
           // Network errors — ticket is already showing optimistically, just close
           const isNetworkError = err?.status === 0 || err?.message?.includes('backend');
           if (isNetworkError) {
-            if (selectedAgent && selectedAgent.email) {
+            if (targetAgent && targetAgent.email) {
               dispatchAssignmentNotification({
                 ticket: { ticket_id: tempId, ...ticketData },
-                agentName: selectedAgent.name,
-                agentEmail: selectedAgent.email,
+                agentName: targetAgent.name,
+                agentEmail: targetAgent.email,
               });
             }
             if (onSuccess) onSuccess({ ticket_id: tempId, created_at: new Date().toISOString() });
@@ -468,12 +472,18 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
                   onChange={(e) => setAssignedAgentId(e.target.value)}
                   className="w-full pl-3 pr-7 py-1.5 bg-[#E2E9F2] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.08)] border border-slate-300/60 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400/30 cursor-pointer appearance-none transition-all"
                 >
-                  <option value="">⚡ Unassigned (Shared Pool)</option>
-                  {activeAgents.map((ag) => (
-                    <option key={ag.id} value={ag.id}>
-                      {ag.name} ({ag.status})
+                  {defaultAgent && (
+                    <option value={defaultAgent.id}>
+                      ⚡ {defaultAgent.name} (Primary Agent &bull; {defaultAgent.status})
                     </option>
-                  ))}
+                  )}
+                  {activeAgents
+                    .filter((ag) => ag.id !== defaultAgent?.id)
+                    .map((ag) => (
+                      <option key={ag.id} value={ag.id}>
+                        {ag.name} ({ag.status})
+                      </option>
+                    ))}
                 </select>
                 <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                   <ChevronDown className="w-3.5 h-3.5" />

@@ -9,11 +9,11 @@ export function useUpdateTicket() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState(null);
 
-  const mutateAsync = async ({ ticketId, status }) => {
+  const mutateAsync = async ({ ticketId, ...updateFields }) => {
     setIsPending(true);
     setError(null);
     try {
-      const result = await fsUpdateTicket(ticketId, { status });
+      const result = await fsUpdateTicket(ticketId, updateFields);
       setIsPending(false);
       return result;
     } catch (err) {

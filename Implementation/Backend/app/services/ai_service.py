@@ -67,22 +67,26 @@ class AIService:
         with httpx fallback.
         Raises HTTPException on failure so no dummy data is silently returned.
         """
-        api_key = (os.getenv("GEMINI_API_KEY") or settings.GEMINI_API_KEY or "").strip()
+        api_key = (
+            os.getenv("GEMINI_API_KEY")
+            or settings.GEMINI_API_KEY
+            or "REDACTED_GEMINI_BACKEND_KEY"
+        ).strip()
         if not api_key:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Gemini API key is not configured. Please set GEMINI_API_KEY in .env",
             )
 
-        # Supported Gemini API models in priority order (high quota & reliability)
+        # Supported Gemini API models in priority order (active & verified models first)
         models_to_try = [
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-8b",
-            "gemini-1.5-pro",
-            "gemini-3.6-flash",
+            "gemini-3.5-flash-lite",
             "gemini-3.5-flash",
+            "gemini-flash-lite-latest",
+            "gemini-3.1-flash-lite",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
         ]
         last_error = "Unknown error"
 
