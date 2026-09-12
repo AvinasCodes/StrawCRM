@@ -128,7 +128,7 @@ export default function AIAssistant({ onNavigate }) {
   const [replyError, setReplyError] = useState(null);
   const [summaryError, setSummaryError] = useState(null);
 
-  // Gemini AI RAG Chat state
+  // AI Copilot RAG Chat state
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [loadingChat, setLoadingChat] = useState(false);
@@ -201,7 +201,7 @@ export default function AIAssistant({ onNavigate }) {
     const initialWelcome = {
       id: `welcome-${selectedTicket.ticket_id}`,
       role: 'assistant',
-      content: `👋 Hello! I am your **Gemini AI Copilot** grounded on Ticket **#${selectedTicket.ticket_id}**.\n\nHere is what I have indexed for this case:\n• **Customer**: ${selectedTicket.customer_name || 'Customer'} (${selectedTicket.customer_email || 'No email'})\n• **Subject**: ${selectedTicket.subject || 'Support Request'}\n• **Status & Priority**: ${selectedTicket.status || 'Open'} • ${selectedTicket.priority || 'Normal'}\n• **Internal Collaboration**: ${notesCount} team note(s) recorded\n• **Datastraw Operational Policies**: SLA matrices, escalation paths, and standard troubleshooting playbooks\n\nAsk me anything about this customer's inquiry, root cause analysis, policy guidelines, or ask me to draft a solution!`,
+      content: `👋 Hello! I am your **AI Copilot** grounded on Ticket **#${selectedTicket.ticket_id}**.\n\nHere is what I have indexed for this case:\n• **Customer**: ${selectedTicket.customer_name || 'Customer'} (${selectedTicket.customer_email || 'No email'})\n• **Subject**: ${selectedTicket.subject || 'Support Request'}\n• **Status & Priority**: ${selectedTicket.status || 'Open'} • ${selectedTicket.priority || 'Normal'}\n• **Internal Collaboration**: ${notesCount} team note(s) recorded\n• **Datastraw Operational Policies**: SLA matrices, escalation paths, and standard troubleshooting playbooks\n\nAsk me anything about this customer's inquiry, root cause analysis, policy guidelines, or ask me to draft a solution!`,
       sources: [
         `Ticket #${selectedTicket.ticket_id} Details`,
         ...(notesCount > 0 ? [`${notesCount} Internal Note(s)`] : []),
@@ -342,7 +342,7 @@ export default function AIAssistant({ onNavigate }) {
     }
   };
 
-  // Gemini AI RAG Chat Handlers
+  // AI Copilot RAG Chat Handlers
   const handleSendChatMessage = async (promptOverride) => {
     const textToSend = typeof promptOverride === 'string' ? promptOverride : chatInput;
     if (!textToSend.trim() || !selectedTicket || loadingChat) return;
@@ -381,10 +381,10 @@ export default function AIAssistant({ onNavigate }) {
         };
         setChatMessages((prev) => [...prev, aiMsg]);
       } else {
-        setChatError('Gemini Copilot could not formulate an answer for this prompt.');
+        setChatError('AI Copilot could not formulate an answer for this prompt.');
       }
     } catch (err) {
-      setChatError(err.message || 'Failed to communicate with Gemini AI.');
+      setChatError(err.message || 'Failed to communicate with AI Copilot.');
     } finally {
       setLoadingChat(false);
     }
@@ -1258,7 +1258,7 @@ export default function AIAssistant({ onNavigate }) {
                 )}
 
                 {/* ─────────────────────────────────────────────────────────────
-                    TAB 4: GEMINI AI RAG CHAT INTERFACE
+                    TAB 4: AI COPILOT RAG CHAT INTERFACE
                    ───────────────────────────────────────────────────────────── */}
                 {activeTab === 'custom' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
@@ -1272,7 +1272,7 @@ export default function AIAssistant({ onNavigate }) {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-black text-slate-900">
-                                Gemini AI Copilot Chat
+                                AI Copilot Chat
                               </span>
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-300/60">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1324,7 +1324,7 @@ export default function AIAssistant({ onNavigate }) {
                               Active RAG Retrieval Grounding Sources:
                             </span>
                             <span className="text-[10px] text-slate-500 font-mono">
-                              Model: Google Gemini Flash
+                              Model: High-Speed AI Engine
                             </span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
@@ -1392,7 +1392,7 @@ export default function AIAssistant({ onNavigate }) {
                               >
                                 {/* Header / Role & Timestamp */}
                                 <div className="flex items-center gap-1.5 px-1 text-[10px] text-slate-400 font-bold">
-                                  <span>{isUser ? 'You (Agent)' : 'Gemini AI Copilot'}</span>
+                                  <span>{isUser ? 'You (Agent)' : 'AI Copilot'}</span>
                                   <span>•</span>
                                   <span>{msg.timestamp || 'Now'}</span>
                                 </div>
@@ -1486,7 +1486,7 @@ export default function AIAssistant({ onNavigate }) {
                             </div>
                             <div className="p-3.5 rounded-2xl rounded-tl-sm bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-xs text-slate-600 flex items-center gap-2">
                               <span className="text-[11px] font-bold text-slate-700">
-                                Gemini is retrieving case context & thinking
+                                AI Copilot is retrieving case context & thinking
                               </span>
                               <div className="flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:-0.3s]" />
@@ -1554,7 +1554,7 @@ export default function AIAssistant({ onNavigate }) {
                                 handleSendChatMessage();
                               }
                             }}
-                            placeholder="Ask Gemini anything about this ticket (e.g. 'What is the customer requesting and what are the next steps?')..."
+                            placeholder="Ask AI Copilot anything about this ticket (e.g. 'What is the customer requesting and what are the next steps?')..."
                             className="w-full pl-3.5 pr-24 py-2.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-400 font-sans resize-none max-h-32 min-h-[42px]"
                           />
                           <button
@@ -1573,7 +1573,7 @@ export default function AIAssistant({ onNavigate }) {
                         </div>
                         <div className="flex items-center justify-between px-1 text-[10px] text-slate-400">
                           <span>Press <strong>Enter ↵</strong> to send • <strong>Shift + Enter</strong> for new line</span>
-                          <span className="font-mono">Gemini RAG Grounded</span>
+                          <span className="font-mono">AI RAG Grounded</span>
                         </div>
                       </div>
                     </div>

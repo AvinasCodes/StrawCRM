@@ -47,7 +47,7 @@ export default function ChallengeSolution({ onNavigate }) {
         <div className="cs-solution-card">
           <Brand />
           <ul>
-            {['Unified Datastraw queue', 'Categorized tickets', 'Gemini AI insights', 'Consistent client SLA'].map(item => (
+            {['Unified Datastraw queue', 'Categorized tickets', 'AI insights', 'Consistent client SLA'].map(item => (
               <li key={item}><Check size={10} />{item}</li>
             ))}
           </ul>

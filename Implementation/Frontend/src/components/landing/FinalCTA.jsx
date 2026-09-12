@@ -23,7 +23,7 @@ export default function FinalCTA({ onNavigate }) {
             Datastraw Internal Support Desk
           </h2>
           <p className="text-base sm:text-lg text-slate-300 max-w-xl mx-auto leading-relaxed">
-            Centralized ticket handling, real-time collaboration, and Gemini AI assistance for Datastraw staff.
+            Centralized ticket handling, real-time collaboration, and AI assistance for Datastraw staff.
           </p>
         </div>
 
@@ -59,7 +59,7 @@ export default function FinalCTA({ onNavigate }) {
           </span>
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-brand-cyan" />
-            Integrated Gemini AI Engine
+            Integrated AI Engine
           </span>
         </div>
       </div>

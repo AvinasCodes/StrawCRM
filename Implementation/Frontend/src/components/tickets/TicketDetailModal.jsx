@@ -200,7 +200,7 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
     }
   };
 
-  // Gemini AI state
+  // AI Assistant state
   const [aiSummary, setAiSummary] = useState(null);
   const [loadingAiSummary, setLoadingAiSummary] = useState(false);
   const [aiSummaryError, setAiSummaryError] = useState(null);
@@ -375,7 +375,7 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
   };
 
   // ──────────────────────────────────────────────────────────────────
-  // AI Assistant handlers (server-side Gemini API calls)
+  // AI Assistant handlers (server-side AI calls)
   // ──────────────────────────────────────────────────────────────────
   const handleGenerateSummary = async () => {
     if (!ticket || loadingAiSummary) return;
@@ -386,10 +386,10 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
       if (res && res.summary) {
         setAiSummary(res);
       } else {
-        setAiSummaryError('Gemini API did not return a summary.');
+        setAiSummaryError('AI service did not return a summary.');
       }
     } catch (err) {
-      setAiSummaryError(err.message || 'Failed to generate summary from Gemini.');
+      setAiSummaryError(err.message || 'Failed to generate summary from AI.');
       setAiSummary(null);
     } finally {
       setLoadingAiSummary(false);
@@ -405,11 +405,11 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
       if (res && res.suggested_reply) {
         setAiReply(res.suggested_reply);
       } else {
-        setAiReplyError('Gemini API did not return a reply.');
+        setAiReplyError('AI service did not return a reply.');
       }
       setReplyCopied(false);
     } catch (err) {
-      setAiReplyError(err.message || 'Failed to generate reply from Gemini.');
+      setAiReplyError(err.message || 'Failed to generate reply from AI.');
       setAiReply(null);
       setReplyCopied(false);
     } finally {

@@ -24,7 +24,7 @@ const STAGES = [
     id: 'ai-assist',
     step: '03',
     title: 'AI Assist',
-    subtitle: 'Gemini Copilot',
+    subtitle: 'AI Copilot',
     desc: 'Instant context summaries and suggested replies drafted automatically in your team’s tone of voice.',
     icon: Bot,
     color: 'from-cyan-500/20 to-blue-500/20 border-cyan-300/50 text-brand-cyan',

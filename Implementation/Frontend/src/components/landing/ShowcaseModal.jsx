@@ -156,7 +156,7 @@ function AITab() {
 
       {/* AI panel */}
       <div className="sc-ai-panel">
-        <div className="sc-ai-panel-head"><Sparkles size={16} /> Gemini AI Copilot</div>
+        <div className="sc-ai-panel-head"><Sparkles size={16} /> AI Copilot</div>
 
         {/* Mode tabs */}
         <div className="sc-ai-tabs">
@@ -190,7 +190,7 @@ function AITab() {
         </div>
 
         <button className="sc-ai-run-btn" onClick={runAI}>
-          <Sparkles size={14} /> {shown ? 'Re-generate' : 'Generate with Gemini AI'}
+          <Sparkles size={14} /> {shown ? 'Re-generate' : 'Generate with AI'}
           <ArrowRight size={14} />
         </button>
       </div>

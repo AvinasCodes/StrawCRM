@@ -26,7 +26,7 @@ const VIEWS = [
   },
   {
     id: 'ai',
-    title: 'Gemini AI Copilot',
+    title: 'AI Copilot',
     desc: 'Automated summaries, suggested reply drafts, and customer sentiment classification.',
     icon: Bot,
     badge: 'Intelligence',
@@ -214,7 +214,7 @@ export default function ProductShowcase({ onNavigate }) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-white text-sm font-bold">
                     <Bot className="w-5 h-5 text-brand-cyan" />
-                    <span>Gemini AI Ticket Synthesis</span>
+                    <span>AI Ticket Synthesis</span>
                   </div>
                   <span className="text-[10px] font-mono text-brand-cyan bg-brand-cyan/20 px-2 py-0.5 rounded-full">
                     Latency: 420ms

@@ -21,7 +21,7 @@ export default function BrandPanel() {
       icon: HeartHandshake,
     },
     {
-      title: 'Gemini AI Assistant',
+      title: 'AI Assistant',
       desc: 'Instant context summaries and smart replies.',
       icon: Sparkles,
       highlight: true,
@@ -86,7 +86,7 @@ export default function BrandPanel() {
           </h1>
           <p className="mt-2 text-xs lg:text-[13px] text-blue-100/80 leading-relaxed max-w-md">
             Internal ticketing workspace for Datastraw.in teams. Coordinate client issues,
-            analyze requests with Gemini AI, and track SLA resolution metrics.
+            analyze requests with AI assistance, and track SLA resolution metrics.
           </p>
         </div>
 
@@ -153,11 +153,11 @@ export default function BrandPanel() {
             </span>
           </div>
 
-          {/* Gemini AI pill */}
+          {/* AI Assistant pill */}
           <div className="mt-2 p-1.5 bg-gradient-to-r from-brand-electric/25 to-brand-cyan/20 rounded-lg border border-brand-cyan/30 flex items-center gap-1.5 text-[10px]">
             <Sparkles className="w-3 h-3 text-brand-cyan shrink-0" />
             <span className="text-blue-100 truncate">
-              <strong className="text-white">Gemini AI:</strong> Drafted response & summary ready
+              <strong className="text-white">AI Assistant:</strong> Drafted response & summary ready
             </span>
           </div>
         </div>

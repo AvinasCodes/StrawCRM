@@ -19,7 +19,7 @@ const TRUST_ITEMS = [
   },
   {
     icon: Cpu,
-    title: 'Gemini AI Data Isolation',
+    title: 'AI Data Isolation',
     desc: 'Customer ticket context is processed transiently for synthesis and response drafting without training public models.',
   },
   {

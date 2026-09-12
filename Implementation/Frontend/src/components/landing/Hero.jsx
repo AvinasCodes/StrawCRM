@@ -108,7 +108,7 @@ export default function Hero({ onNavigate, onShowcase }) {
             {/* Subtitle */}
             <p className="text-sm sm:text-base text-slate-300/90 max-w-xl font-normal leading-relaxed">
               The dedicated internal helpdesk for Datastraw.in teams. Triage client requests,
-              streamline incident resolution, and leverage Gemini AI intelligence across all services.
+              streamline incident resolution, and leverage AI intelligence across all services.
             </p>
 
             {/* CTA Buttons Row */}
@@ -176,7 +176,7 @@ export default function Hero({ onNavigate, onShowcase }) {
                 </div>
                 <div>
                   <div className="text-base sm:text-lg font-black text-white tracking-tight leading-none">24/7</div>
-                  <div className="text-[10px] text-blue-200/70 font-semibold tracking-wide mt-1">Gemini AI Core</div>
+                  <div className="text-[10px] text-blue-200/70 font-semibold tracking-wide mt-1">AI Core</div>
                 </div>
               </div>
             </div>
@@ -476,7 +476,7 @@ export default function Hero({ onNavigate, onShowcase }) {
             </div>
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Gemini 1.5 Synthesis</span>
+              <span>AI Synthesis</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-cyan-400" />

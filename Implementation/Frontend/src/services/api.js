@@ -276,7 +276,7 @@ async function callDirectGemini(prompt) {
         if (text) return text.trim();
       }
     } catch (e) {
-      console.warn(`[Direct Gemini] Model ${model} failed:`, e);
+      console.warn(`[Direct AI] Model ${model} failed:`, e);
     }
   }
   return null;
@@ -308,7 +308,7 @@ export async function getTicketAISummary(ticketId, ticketData = null) {
     );
     if (res && res.summary) return res;
   } catch (err) {
-    console.warn('[AI Service] Backend AI summary request fell back to direct Gemini client:', err);
+    console.warn('[AI Service] Backend AI summary request fell back to direct AI client:', err);
   }
 
   // Fallback: Direct Gemini Client Call
@@ -347,7 +347,7 @@ Respond ONLY with valid JSON.`;
       };
     }
   } catch (e) {
-    console.warn('[AI Service] Direct Gemini summary parse error:', e);
+    console.warn('[AI Service] Direct AI summary parse error:', e);
   }
 
   // Final Instant Fallback
@@ -380,7 +380,7 @@ export async function getTicketAIReply(ticketId, instructions = '', tone = 'prof
     );
     if (res && res.suggested_reply) return res;
   } catch (err) {
-    console.warn('[AI Service] Backend AI reply request fell back to direct Gemini client:', err);
+    console.warn('[AI Service] Backend AI reply request fell back to direct AI client:', err);
   }
 
   // Fallback: Direct Gemini Client Call
@@ -420,7 +420,7 @@ CRITICAL RULES:
       };
     }
   } catch (e) {
-    console.warn('[AI Service] Direct Gemini reply error:', e);
+    console.warn('[AI Service] Direct AI reply error:', e);
   }
 
   // Final Instant Fallback Template
@@ -445,7 +445,7 @@ export async function queryTicketAI(ticketId, query, ticketData = null, messages
     );
     if (res && res.answer) return res;
   } catch (err) {
-    console.warn('[AI Service] Backend AI query request fell back to direct Gemini client:', err);
+    console.warn('[AI Service] Backend AI query request fell back to direct AI client:', err);
   }
 
   // Fallback: Direct Gemini RAG Call with full grounding context & conversation memory
@@ -454,7 +454,7 @@ export async function queryTicketAI(ticketId, query, ticketData = null, messages
     : 'None recorded yet.';
 
   const historyText = Array.isArray(messages) && messages.length > 0
-    ? messages.slice(-6).map((m) => `${m.role === 'user' ? 'Support Agent' : 'Gemini Copilot'}: ${m.content}`).join('\n')
+    ? messages.slice(-6).map((m) => `${m.role === 'user' ? 'Support Agent' : 'AI Copilot'}: ${m.content}`).join('\n')
     : 'No prior messages in this conversation.';
 
   const prompt = `You are an expert AI Support Copilot assisting an internal Customer Support Agent at StrawCRM / Datastraw.
@@ -518,7 +518,7 @@ CRITICAL COPILOT INSTRUCTIONS:
       };
     }
   } catch (e) {
-    console.warn('[AI Service] Direct Gemini query error:', e);
+    console.warn('[AI Service] Direct AI query error:', e);
   }
 
   return {

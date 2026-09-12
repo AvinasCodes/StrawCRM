@@ -23,7 +23,7 @@ export default function LandingPage({ onNavigate }) {
       document.head.appendChild(metaDesc);
     }
     metaDesc.content =
-      'Internal customer support ticketing and service operations system for Datastraw.in teams, powered by Gemini AI.';
+      'Internal customer support ticketing and service operations system for Datastraw.in teams, powered by AI.';
 
     // Smooth scroll behavior
     document.documentElement.style.scrollBehavior = 'smooth';
@@ -46,7 +46,7 @@ export default function LandingPage({ onNavigate }) {
       {/* 3. Ticket Management Workspace */}
       <TicketShowcase onNavigate={onNavigate} />
 
-      {/* 4. Gemini AI Support Intelligence */}
+      {/* 4. AI Support Intelligence */}
       <AISection onNavigate={onNavigate} />
 
       {/* 5. 5-Stage Workflow Pipeline */}

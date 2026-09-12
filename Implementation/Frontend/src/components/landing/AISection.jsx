@@ -45,7 +45,7 @@ export default function AISection({ onNavigate }) {
             <span>Datastraw AI Intelligence Core</span>
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight">
-            Gemini AI Copilot for Datastraw Operators
+            AI Copilot for Datastraw Operators
           </h2>
           <p className="text-sm text-slate-400">
             Accelerate internal triage. Summarize lengthy client inquiry logs in seconds, auto-detect urgency, and draft accurate responses with one click.
@@ -56,7 +56,7 @@ export default function AISection({ onNavigate }) {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 max-w-4xl mx-auto text-center">
           {[
             { step: '01', title: 'Ticket Ingest', desc: 'Raw customer query' },
-            { step: '02', title: 'Gemini Analysis', desc: 'Intent & sentiment' },
+            { step: '02', title: 'AI Analysis', desc: 'Intent & sentiment' },
             { step: '03', title: 'AI Summary', desc: 'Instant 2-sentence brief' },
             { step: '04', title: 'Reply Synthesis', desc: 'Multi-tone response' },
             { step: '05', title: 'Fast Resolution', desc: 'Verified by agent' },
@@ -130,7 +130,7 @@ export default function AISection({ onNavigate }) {
                 {generating ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Analyzing with Gemini...</span>
+                    <span>Analyzing ticket context...</span>
                   </>
                 ) : (
                   <>
@@ -149,7 +149,7 @@ export default function AISection({ onNavigate }) {
               <div className="flex items-center justify-between pb-3 border-b border-white/10">
                 <div className="flex items-center gap-2 text-xs font-bold text-white">
                   <Bot className="w-4 h-4 text-brand-cyan" />
-                  <span>Gemini Suggested Response</span>
+                  <span>AI Suggested Response</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-mono font-bold">
