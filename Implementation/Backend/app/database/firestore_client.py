@@ -370,6 +370,9 @@ class FirestoreClient:
                     c["latest_ticket_id"] = c_tickets[0].get("ticket_id")
                     c["latest_ticket_date"] = c_tickets[0].get("created_at")
                     c["latest_subject"] = c_tickets[0].get("subject")
+
+            # Only return customers who currently have active tickets
+            customers = [c for c in customers if c.get("ticket_count", 0) > 0]
         else:
             # Fallback: aggregate from tickets
             db = _ensure_db_initialized()

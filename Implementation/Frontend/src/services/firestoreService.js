@@ -1160,11 +1160,14 @@ export async function deleteTicket(ticketId) {
     console.warn('[firestoreService] Delete backend warning:', err);
   }
 
-  // 3. Sync to Firestore
+  // 3. Sync to Firestore (delete both with and without leading '#')
   if (db) {
     try {
-      const ticketRef = doc(db, TICKETS_COLLECTION, cleanId);
-      deleteDoc(ticketRef).catch(() => { });
+      deleteDoc(doc(db, TICKETS_COLLECTION, cleanId)).catch(() => { });
+      deleteDoc(doc(db, TICKETS_COLLECTION, `#${cleanId}`)).catch(() => { });
+      if (ticketId && ticketId !== cleanId && ticketId !== `#${cleanId}`) {
+        deleteDoc(doc(db, TICKETS_COLLECTION, ticketId)).catch(() => { });
+      }
     } catch { }
   }
 
@@ -1181,7 +1184,10 @@ export async function deleteTicketsBulk(ticketIds = []) {
   const targetUpperSet = new Set(cleanIds.map((id) => id.toUpperCase()));
 
   // 0. Mark all as deleted so sync/snapshot can never resurrect them
-  targetUpperSet.forEach((id) => _deletedIds.add(id));
+  targetUpperSet.forEach((id) => {
+    _deletedIds.add(id);
+    _deletedIds.add(`#${id}`);
+  });
   persistDeletedTicketIds();
 
   // 1. Optimistic removal from _localTickets
@@ -1206,8 +1212,8 @@ export async function deleteTicketsBulk(ticketIds = []) {
   if (db) {
     cleanIds.forEach((cleanId) => {
       try {
-        const ticketRef = doc(db, TICKETS_COLLECTION, cleanId);
-        deleteDoc(ticketRef).catch(() => { });
+        deleteDoc(doc(db, TICKETS_COLLECTION, cleanId)).catch(() => { });
+        deleteDoc(doc(db, TICKETS_COLLECTION, `#${cleanId}`)).catch(() => { });
       } catch { }
     });
   }
