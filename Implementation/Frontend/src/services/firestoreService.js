@@ -24,7 +24,8 @@ const TICKETS_COLLECTION = 'tickets';
 const NOTES_SUBCOLLECTION = 'notes';
 const CUSTOMERS_COLLECTION = 'customers';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const _rawApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
 
 async function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
