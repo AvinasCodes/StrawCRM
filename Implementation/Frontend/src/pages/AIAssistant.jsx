@@ -1156,19 +1156,6 @@ export default function AIAssistant({ onNavigate }) {
                           <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
                             AI Priority Evaluation
                           </span>
-                          <button
-                            type="button"
-                            disabled={loadingPriority}
-                            onClick={handleEvaluatePriority}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-[11px] font-black shadow-sm hover:brightness-105 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-                          >
-                            {loadingPriority ? (
-                              <Loader2 className="w-3 h-3 animate-spin text-white" />
-                            ) : (
-                              <Zap className="w-3 h-3 text-white" />
-                            )}
-                            <span>{loadingPriority ? 'Evaluating...' : 'Evaluate Priority'}</span>
-                          </button>
                         </div>
 
                         <div className="flex items-center justify-between">
