@@ -322,51 +322,169 @@ Support Operations Team
         )
 
     @classmethod
-    def execute_custom_query(cls, ticket: Dict[str, Any], query: str) -> Dict[str, Any]:
+    def _retrieve_rag_context(cls, ticket: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes a targeted custom question, extraction, or analytical query
-        regarding a ticket for the internal support agent.
+        Retrieval component for RAG:
+        Pulls ticket details, internal notes, customer profile, past ticket history,
+        and CRM operational knowledge policies.
         """
+        from app.database.firestore_client import FirestoreClient
+
         ticket_id = ticket.get("ticket_id", "TKT-000")
         subject = str(ticket.get("subject") or "Support Request").strip()
         description = str(ticket.get("description") or "").strip()
         customer_name = str(ticket.get("customer_name") or "Customer").strip()
+        customer_email = str(ticket.get("customer_email") or "").strip()
+        customer_id = str(ticket.get("customer_id") or "").strip()
         status_val = ticket.get("status", "Open")
+        priority_val = str(ticket.get("priority") or "Normal").capitalize()
+        category_val = ticket.get("category", "General Support")
+        created_at = ticket.get("created_at", "Recently")
         notes = ticket.get("notes", []) or []
-        notes_text = "\n".join([f"- {n.get('author_name', 'Agent')}: {n.get('note_text', '')}" for n in notes]) if notes else "None"
+
+        # 1. Internal Notes context
+        notes_text = "None recorded yet."
+        if notes:
+            notes_text = "\n".join([
+                f"- [{n.get('created_at', 'Note')}] {n.get('author_name', 'Agent')}: {n.get('note_text', '')}"
+                for n in notes
+            ])
+
+        # 2. Customer Profile & Past Tickets context
+        past_tickets_summary = "No previous tickets on file."
+        past_tickets_count = 0
+        try:
+            all_cust_tickets = FirestoreClient.list_tickets(customer_id=customer_id) if customer_id else []
+            if not all_cust_tickets and customer_email:
+                all_cust_tickets = [
+                    t for t in FirestoreClient.list_tickets()
+                    if str(t.get("customer_email", "")).strip().lower() == customer_email.lower()
+                ]
+            other_tickets = [t for t in all_cust_tickets if str(t.get("ticket_id", "")).lstrip("#") != str(ticket_id).lstrip("#")]
+            past_tickets_count = len(other_tickets)
+            if other_tickets:
+                past_tickets_summary = "\n".join([
+                    f"- Ticket #{t.get('ticket_id')}: {t.get('subject', 'No Subject')} (Status: {t.get('status')}, Priority: {t.get('priority')})"
+                    for t in other_tickets[:5]
+                ])
+        except Exception as ex:
+            logger.warning("[RAG Retriever] Could not fetch past customer tickets: %s", ex)
+
+        # 3. Datastraw Support Policies & Playbooks
+        knowledge_policies = """
+[Datastraw SLA Resolution Targets]
+- Urgent / Critical: First response < 1 hour, Resolution target < 4 hours. Escalated to Tier 2 Engineering.
+- High: First response < 4 hours, Resolution target < 12 hours.
+- Normal: First response < 8 hours, Resolution target < 24 hours.
+- Low: First response < 24 hours, Resolution target < 48 hours.
+
+[Standard Diagnostic Playbooks]
+- Profile & Settings Save Failures: Stale cookies or cache conflict, auth token refresh timeout, browser extensions/ad-blockers interfering with PUT/POST requests. Recommended actions: clear cache, verify session in incognito, check network payload.
+- Authentication & Access: Invalid session token, unverified email address, password expiry. Recommended actions: send password reset link, verify account status in users directory.
+- Billing / Refunds: All refund requests require confirmation by Billing Operations Lead within 3-5 business days. Agents cannot issue instant cash refunds without Lead sign-off.
+- Escalation Protocol: Tier 1 Support Agent -> Tier 2 Technical Support -> Operations Lead -> Engineering Director.
+""".strip()
+
+        sources = [f"Ticket #{ticket_id.lstrip('#')} Core Details"]
+        if notes:
+            sources.append(f"{len(notes)} Internal Agent Note(s)")
+        if customer_name:
+            sources.append(f"Customer Profile: {customer_name}")
+        if past_tickets_count > 0:
+            sources.append(f"Customer Ticket History ({past_tickets_count} past tickets)")
+        sources.append("Datastraw SLA & Support Policy KB")
+
+        return {
+            "ticket_id": ticket_id,
+            "subject": subject,
+            "description": description,
+            "customer_name": customer_name,
+            "customer_email": customer_email,
+            "status": status_val,
+            "priority": priority_val,
+            "category": category_val,
+            "created_at": created_at,
+            "notes_text": notes_text,
+            "past_tickets_count": past_tickets_count,
+            "past_tickets_summary": past_tickets_summary,
+            "knowledge_policies": knowledge_policies,
+            "sources": sources,
+        }
+
+    @classmethod
+    def execute_rag_query(
+        cls,
+        ticket: Dict[str, Any],
+        query: str,
+        messages: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Executes a grounded RAG (Retrieval-Augmented Generation) query using Google Gemini AI.
+        Retrieves ticket facts, internal notes, customer historical records, and CRM support policies,
+        incorporating multi-turn conversation memory.
+        """
+        ctx = cls._retrieve_rag_context(ticket)
+        ticket_id = ctx["ticket_id"]
+
+        # Build conversation history snippet
+        history_text = "No prior messages in this conversation."
+        if messages and isinstance(messages, list):
+            valid_msgs = [m for m in messages if isinstance(m, dict) and m.get("content")]
+            if valid_msgs:
+                history_text = "\n".join([
+                    f"{'Support Agent' if m.get('role') == 'user' else 'Gemini Copilot'}: {m.get('content')}"
+                    for m in valid_msgs[-8:]  # Keep last 8 turns for context efficiency
+                ])
 
         prompt = f"""
 You are an expert AI Support Copilot assisting an internal Customer Support Agent at StrawCRM / Datastraw.
-The agent is asking a specific question or requesting an extraction about this support ticket.
+You are equipped with a RAG (Retrieval-Augmented Generation) engine grounded on live CRM data and support knowledge.
 
-TICKET DATA:
-- Ticket ID: #{ticket_id}
-- Customer Name: {customer_name}
-- Subject: {subject}
-- Customer Issue / Description: {description}
-- Status: {status_val}
-- Internal Agent Notes: {notes_text}
+=== RETRIEVED GROUNDING CONTEXT (RAG) ===
 
-AGENT'S REQUEST / QUERY:
+[DOCUMENT 1: CURRENT TICKET DETAILS]
+- Ticket ID: #{ticket_id.lstrip('#')}
+- Customer Name: {ctx['customer_name']} ({ctx['customer_email']})
+- Subject: {ctx['subject']}
+- Priority: {ctx['priority']}
+- Current Status: {ctx['status']}
+- Category: {ctx['category']}
+- Created At: {ctx['created_at']}
+- Customer Problem Description:
+{ctx['description']}
+
+[DOCUMENT 2: INTERNAL AGENT COLLABORATION & NOTES]
+{ctx['notes_text']}
+
+[DOCUMENT 3: CUSTOMER PROFILE & HISTORICAL TICKETS]
+- Total past tickets: {ctx['past_tickets_count']}
+{ctx['past_tickets_summary']}
+
+[DOCUMENT 4: DATASTRAW CRM KNOWLEDGE & OPERATIONAL POLICIES]
+{ctx['knowledge_policies']}
+
+=== END RETRIEVED GROUNDING CONTEXT ===
+
+=== RECENT CONVERSATION HISTORY ===
+{history_text}
+=== END CONVERSATION HISTORY ===
+
+CURRENT AGENT INQUIRY:
 "{query.strip()}"
 
-CRITICAL INSTRUCTIONS:
-1. Directly answer the agent's request based on the ticket data above.
-2. DO NOT write an email or customer greeting like "Dear Customer" or "Thank you for reaching out" unless the agent explicitly commanded "write an email to customer".
-3. If the query asks to "Extract customer key demands", "Extract demands", "Summarize requirements", etc.:
-   - Provide a clean, structured bulleted list of exactly what the customer is asking for or demanding.
-4. If the query asks for "Troubleshooting steps", "Policy explanation", or a factual question about the ticket:
-   - Provide clear, direct, actionable advice or facts for the agent.
-5. FORMATTING:
-   - Provide clear bullet points or numbered lists.
-   - Use standard ASCII apostrophes and quotes.
-6. Provide a direct, comprehensive, and helpful answer for the support agent. No filler greetings or conversational fluff.
+CRITICAL COPILOT INSTRUCTIONS:
+1. GROUNDED FACTUALITY: Answer the agent's inquiry directly and accurately, strictly grounded in the retrieved documents above. If something is unknown or not in the retrieved data, state it clearly rather than guessing.
+2. CITATION OF FACTS: Reference specific details when relevant (e.g. citing the customer's description, specific notes, SLA limits, or policy rules).
+3. ACTION-ORIENTED SUPPORT: Provide actionable recommendations, structured checklists, diagnostic steps, or exact extractions that empower the agent to solve the customer's case quickly.
+4. AUDIENCE: You are speaking internally to the Support Agent (not writing an email to the customer, unless specifically asked to "draft a response").
+5. FORMATTING: Use clean markdown with clear headings, concise bullet points, and numbered lists where appropriate.
+6. TONE: Professional, efficient, sharp, and highly supportive.
 """
         answer_text = cls._execute_gemini_prompt(prompt)
         if not answer_text:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Gemini API returned an empty answer for this query.",
+                detail="Gemini API returned an empty response for this RAG query.",
             )
 
         cleaned_answer = cls.clean_text(answer_text)
@@ -375,6 +493,12 @@ CRITICAL INSTRUCTIONS:
             "ticket_id": ticket_id,
             "query": query.strip(),
             "answer": cleaned_answer,
+            "sources": ctx["sources"],
         }
+
+    @classmethod
+    def execute_custom_query(cls, ticket: Dict[str, Any], query: str) -> Dict[str, Any]:
+        """Backward-compatible wrapper for execute_rag_query."""
+        return cls.execute_rag_query(ticket, query=query, messages=[])
 
 

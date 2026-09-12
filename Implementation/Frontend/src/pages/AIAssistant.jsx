@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Sparkles,
   FileText,
@@ -30,6 +30,11 @@ import {
   Meh,
   Frown,
   ArrowRight,
+  Bot,
+  Database,
+  Trash2,
+  CornerDownLeft,
+  BookOpen,
 } from 'lucide-react';
 import { subscribeTickets, syncFromBackend, updateTicket } from '../services/firestoreService';
 import { getTicketAISummary, getTicketAIReply, queryTicketAI, sendTicketResponseToCustomer } from '../services/api';
@@ -123,12 +128,15 @@ export default function AIAssistant({ onNavigate }) {
   const [replyError, setReplyError] = useState(null);
   const [summaryError, setSummaryError] = useState(null);
 
-  // Custom Prompt / Ask AI state
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [customAnswer, setCustomAnswer] = useState('');
-  const [loadingCustom, setLoadingCustom] = useState(false);
-  const [customError, setCustomError] = useState(null);
-  const [copiedCustom, setCopiedCustom] = useState(false);
+  // Gemini AI RAG Chat state
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [loadingChat, setLoadingChat] = useState(false);
+  const [chatError, setChatError] = useState(null);
+  const [copiedChatId, setCopiedChatId] = useState(null);
+  const [insertedReplyId, setInsertedReplyId] = useState(null);
+  const [showGroundingInfo, setShowGroundingInfo] = useState(false);
+  const chatBottomRef = useRef(null);
 
   // Send via Email Modal state (Official response directly to customer email)
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -172,7 +180,7 @@ export default function AIAssistant({ onNavigate }) {
     return tickets.find((t) => t.ticket_id === selectedTicketId) || tickets[0] || null;
   }, [tickets, selectedTicketId]);
 
-  // Reset output state when ticket changes
+  // Reset output state and initialize RAG chat when ticket changes
   useEffect(() => {
     if (!selectedTicket) return;
 
@@ -186,9 +194,32 @@ export default function AIAssistant({ onNavigate }) {
     setSummaryData(null);
     setReplyError(null);
     setSummaryError(null);
-    setCustomAnswer('');
-    setCustomError(null);
+    setChatError(null);
+    setChatInput('');
+
+    const notesCount = Array.isArray(selectedTicket.notes) ? selectedTicket.notes.length : 0;
+    const initialWelcome = {
+      id: `welcome-${selectedTicket.ticket_id}`,
+      role: 'assistant',
+      content: `👋 Hello! I am your **Gemini AI Copilot** grounded on Ticket **#${selectedTicket.ticket_id}**.\n\nHere is what I have indexed for this case:\n• **Customer**: ${selectedTicket.customer_name || 'Customer'} (${selectedTicket.customer_email || 'No email'})\n• **Subject**: ${selectedTicket.subject || 'Support Request'}\n• **Status & Priority**: ${selectedTicket.status || 'Open'} • ${selectedTicket.priority || 'Normal'}\n• **Internal Collaboration**: ${notesCount} team note(s) recorded\n• **Datastraw Operational Policies**: SLA matrices, escalation paths, and standard troubleshooting playbooks\n\nAsk me anything about this customer's inquiry, root cause analysis, policy guidelines, or ask me to draft a solution!`,
+      sources: [
+        `Ticket #${selectedTicket.ticket_id} Details`,
+        ...(notesCount > 0 ? [`${notesCount} Internal Note(s)`] : []),
+        `Customer Profile: ${selectedTicket.customer_name || 'Customer'}`,
+        'Datastraw SLA & Support Policy KB',
+      ],
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setChatMessages([initialWelcome]);
   }, [selectedTicketId]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (activeTab === 'custom') {
+      chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, loadingChat, activeTab]);
 
   // Generate Reply and Summary
   const handleGenerate = async () => {
@@ -311,43 +342,61 @@ export default function AIAssistant({ onNavigate }) {
     }
   };
 
-  // Custom Prompt / Ask AI Handler (Pure extraction/question answering, not email drafting)
-  const handleCustomQuery = async (queryOverride) => {
-    const promptToRun = typeof queryOverride === 'string' ? queryOverride : customPrompt;
-    if (!promptToRun.trim() || !selectedTicket || loadingCustom) return;
+  // Gemini AI RAG Chat Handlers
+  const handleSendChatMessage = async (promptOverride) => {
+    const textToSend = typeof promptOverride === 'string' ? promptOverride : chatInput;
+    if (!textToSend.trim() || !selectedTicket || loadingChat) return;
+
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: textToSend.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const newHistory = [...chatMessages, userMsg];
+    setChatMessages(newHistory);
+    setChatInput('');
+    setLoadingChat(true);
+    setChatError(null);
 
     try {
-      setLoadingCustom(true);
-      setCustomError(null);
-      setCustomAnswer('');
-
       const res = await queryTicketAI(
         selectedTicket.ticket_id,
-        promptToRun.trim(),
-        selectedTicket
+        userMsg.content,
+        selectedTicket,
+        newHistory.map((m) => ({ role: m.role, content: m.content }))
       );
 
       if (res && res.answer) {
-        setCustomAnswer(res.answer);
+        const aiMsg = {
+          id: `ai-${Date.now()}`,
+          role: 'assistant',
+          content: res.answer,
+          sources: res.sources || [
+            `Ticket #${selectedTicket.ticket_id} Details`,
+            'Datastraw Support Knowledge Base',
+          ],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setChatMessages((prev) => [...prev, aiMsg]);
       } else {
-        setCustomError('AI could not formulate an answer for this prompt.');
+        setChatError('Gemini Copilot could not formulate an answer for this prompt.');
       }
     } catch (err) {
-      setCustomError(err.message || 'Failed to process custom question.');
+      setChatError(err.message || 'Failed to communicate with Gemini AI.');
     } finally {
-      setLoadingCustom(false);
+      setLoadingChat(false);
     }
   };
 
-  // Copy reply text
-  const handleCopyReply = () => {
-    if (!editableReply) return;
-    navigator.clipboard.writeText(editableReply);
-    setCopiedReply(true);
-    setTimeout(() => setCopiedReply(false), 2000);
+  const handleCopyChatMessage = (msgId, text) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedChatId(msgId);
+    setTimeout(() => setCopiedChatId(null), 2000);
   };
 
-  // Copy Ticket ID
   const handleCopyTicketId = () => {
     if (!selectedTicket?.ticket_id) return;
     const cleanId = selectedTicket.ticket_id.replace(/^#/, '');
@@ -356,12 +405,31 @@ export default function AIAssistant({ onNavigate }) {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  // Copy Custom Answer
-  const handleCopyCustom = () => {
-    if (!customAnswer) return;
-    navigator.clipboard.writeText(customAnswer);
-    setCopiedCustom(true);
-    setTimeout(() => setCopiedCustom(false), 2000);
+  const handleInsertToReply = (msgId, text) => {
+    if (!text) return;
+    const cleanText = stripMarkdownAsterisks(text);
+    setEditableReply(cleanText);
+    setIsEditingReply(true);
+    setInsertedReplyId(msgId);
+    setTimeout(() => setInsertedReplyId(null), 2500);
+    setActiveTab('response');
+  };
+
+  const handleClearChat = () => {
+    if (!selectedTicket) return;
+    setChatMessages([
+      {
+        id: `welcome-${selectedTicket.ticket_id}-${Date.now()}`,
+        role: 'assistant',
+        content: `Chat session reset. Ready to answer fresh questions grounded on Ticket **#${selectedTicket.ticket_id}**!`,
+        sources: [
+          `Ticket #${selectedTicket.ticket_id} Details`,
+          'Datastraw Support Knowledge Base',
+        ],
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+    setChatError(null);
   };
 
   // Send via Email action
@@ -781,51 +849,8 @@ export default function AIAssistant({ onNavigate }) {
                         : 'text-slate-600 hover:text-slate-900'
                       }`}
                   >
-                    <HelpCircle className="w-3.5 h-3.5" />
-                    <span>Ask AI</span>
-                  </button>
-                </div>
-
-                {/* Dedicated Action Buttons for Summary & Priority */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Summary Button */}
-                  <button
-                    type="button"
-                    disabled={loadingSummary}
-                    onClick={handleGenerateSummary}
-                    title="Generate AI summary of the selected ticket"
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                      activeTab === 'summary'
-                        ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[2px_2px_8px_rgba(14,165,233,0.35)] hover:brightness-105'
-                        : 'bg-[#E8EEF5] text-slate-700 shadow-neu-btn hover:shadow-neu-card border border-white/80'
-                    }`}
-                  >
-                    {loadingSummary ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-500" />
-                    ) : (
-                      <FileText className={`w-3.5 h-3.5 ${activeTab === 'summary' ? 'text-white' : 'text-sky-600'}`} />
-                    )}
-                    <span>{loadingSummary ? 'Summarizing...' : 'Generate Summary'}</span>
-                  </button>
-
-                  {/* Priority Button */}
-                  <button
-                    type="button"
-                    disabled={loadingPriority}
-                    onClick={handleEvaluatePriority}
-                    title="Evaluate urgency, recommended SLA tier, and customer sentiment"
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                      activeTab === 'priority'
-                        ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[2px_2px_8px_rgba(99,102,241,0.35)] hover:brightness-105'
-                        : 'bg-[#E8EEF5] text-slate-700 shadow-neu-btn hover:shadow-neu-card border border-white/80'
-                    }`}
-                  >
-                    {loadingPriority ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                    ) : (
-                      <Zap className={`w-3.5 h-3.5 ${activeTab === 'priority' ? 'text-white' : 'text-amber-500'}`} />
-                    )}
-                    <span>{loadingPriority ? 'Evaluating...' : 'Evaluate Priority'}</span>
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>AI Chat</span>
                   </button>
                 </div>
               </div>
@@ -1246,106 +1271,324 @@ export default function AIAssistant({ onNavigate }) {
                 )}
 
                 {/* ─────────────────────────────────────────────────────────────
-                    TAB 4: ASK AI / CUSTOM QUERY
+                    TAB 4: GEMINI AI RAG CHAT INTERFACE
                    ───────────────────────────────────────────────────────────── */}
                 {activeTab === 'custom' && (
                   <div className="space-y-4 animate-in fade-in duration-150">
-                    <div className="rounded-2xl bg-[#E8EEF5] shadow-neu-card border border-white/60 p-4 sm:p-5 space-y-3.5">
-                      <div className="flex items-center justify-between border-b border-slate-300/40 pb-2.5">
-                        <span className="text-xs font-black text-slate-900">
-                          Custom Query on this Ticket
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-500">
-                          #{selectedTicket?.ticket_id}
-                        </span>
+                    <div className="rounded-2xl bg-[#E8EEF5] shadow-neu-card border border-white/60 flex flex-col overflow-hidden">
+                      {/* Chat Studio Header */}
+                      <div className="p-3.5 sm:p-4 border-b border-slate-300/40 bg-[#E8EEF5] flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-blue-600 flex items-center justify-between p-1.5 text-white shadow-sm shrink-0">
+                            <Bot className="w-full h-full" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-slate-900">
+                                Gemini AI Copilot Chat
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-300/60">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                RAG Active
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 flex items-center gap-1.5 font-sans mt-0.5">
+                              <span>Ticket #{selectedTicket?.ticket_id}</span>
+                              <span>•</span>
+                              <span>{selectedTicket?.customer_name || 'Customer'}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Top Action Controls */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowGroundingInfo((prev) => !prev)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer border ${
+                              showGroundingInfo
+                                ? 'bg-sky-50 text-sky-700 border-sky-300 shadow-neu-inset'
+                                : 'bg-[#E8EEF5] text-slate-600 hover:text-slate-900 border-white/60 shadow-neu-btn hover:shadow-neu-card'
+                            }`}
+                            title="Inspect RAG Knowledge Base and grounding context"
+                          >
+                            <BookOpen className="w-3.5 h-3.5 text-sky-600" />
+                            <span>Knowledge Sources</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleClearChat}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-[11px] font-bold text-slate-600 hover:text-rose-600 transition-all cursor-pointer"
+                            title="Reset chat conversation history"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Clear</span>
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Prompt Input & Send */}
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={customPrompt}
-                            onChange={(e) => setCustomPrompt(e.target.value)}
+                      {/* Collapsible Grounding Information Drawer */}
+                      {showGroundingInfo && (
+                        <div className="p-3 sm:p-4 bg-[#E2E9F2] border-b border-slate-300/40 text-xs text-slate-700 space-y-2 animate-in slide-in-from-top-2 duration-150">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                              <Database className="w-3.5 h-3.5 text-indigo-600" />
+                              Active RAG Retrieval Grounding Sources:
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              Model: Google Gemini Flash
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                            <div className="p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/60 space-y-1">
+                              <div className="font-black text-[10px] text-sky-700 uppercase tracking-wide">
+                                1. Ticket Core Data & Issue
+                              </div>
+                              <p className="text-[11px] text-slate-600">
+                                Subject: &ldquo;{selectedTicket?.subject}&rdquo; • Priority: {selectedTicket?.priority || 'Normal'} • Status: {selectedTicket?.status || 'Open'}
+                              </p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/60 space-y-1">
+                              <div className="font-black text-[10px] text-indigo-700 uppercase tracking-wide">
+                                2. Agent Collaboration Notes
+                              </div>
+                              <p className="text-[11px] text-slate-600">
+                                {Array.isArray(selectedTicket?.notes) && selectedTicket.notes.length > 0
+                                  ? `${selectedTicket.notes.length} internal agent note(s) indexed for resolution context.`
+                                  : 'No team notes recorded yet for this ticket.'}
+                              </p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/60 space-y-1">
+                              <div className="font-black text-[10px] text-emerald-700 uppercase tracking-wide">
+                                3. Customer Profile & History
+                              </div>
+                              <p className="text-[11px] text-slate-600">
+                                Contact: {selectedTicket?.customer_name} ({selectedTicket?.customer_email || 'No email'}) • Linked workspace tickets
+                              </p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/60 space-y-1">
+                              <div className="font-black text-[10px] text-amber-700 uppercase tracking-wide">
+                                4. Datastraw Support Policies & SLA
+                              </div>
+                              <p className="text-[11px] text-slate-600">
+                                SLA resolution windows (Urgent &lt;4h, High &lt;12h), escalation playbooks, and troubleshooting standards
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Chat Messages Stream Area */}
+                      <div className="p-3.5 sm:p-5 space-y-4 max-h-[500px] min-h-[380px] overflow-y-auto no-scrollbar bg-[#E8EEF5]">
+                        {chatMessages.map((msg) => {
+                          const isUser = msg.role === 'user';
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`flex gap-3 animate-in fade-in duration-150 ${
+                                isUser ? 'justify-end' : 'justify-start'
+                              }`}
+                            >
+                              {/* Assistant Avatar */}
+                              {!isUser && (
+                                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                </div>
+                              )}
+
+                              {/* Message Content Bubble */}
+                              <div
+                                className={`flex flex-col space-y-1.5 max-w-[88%] sm:max-w-[80%] ${
+                                  isUser ? 'items-end' : 'items-start'
+                                }`}
+                              >
+                                {/* Header / Role & Timestamp */}
+                                <div className="flex items-center gap-1.5 px-1 text-[10px] text-slate-400 font-bold">
+                                  <span>{isUser ? 'You (Agent)' : 'Gemini AI Copilot'}</span>
+                                  <span>•</span>
+                                  <span>{msg.timestamp || 'Now'}</span>
+                                </div>
+
+                                {/* Bubble */}
+                                {isUser ? (
+                                  <div className="p-3 rounded-2xl rounded-tr-sm bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-medium shadow-[2px_2px_8px_rgba(14,165,233,0.3)] leading-relaxed font-sans">
+                                    {msg.content}
+                                  </div>
+                                ) : (
+                                  <div className="p-4 rounded-2xl rounded-tl-sm bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-xs text-slate-800 leading-relaxed font-sans space-y-2.5 w-full">
+                                    <div>{renderFormattedMarkdown(msg.content)}</div>
+
+                                    {/* Grounding Sources Badge */}
+                                    {Array.isArray(msg.sources) && msg.sources.length > 0 && (
+                                      <div className="pt-2 border-t border-slate-300/50 flex items-center gap-1.5 flex-wrap">
+                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                                          <Shield className="w-2.5 h-2.5 text-indigo-500" />
+                                          Grounding:
+                                        </span>
+                                        {msg.sources.map((src, sIdx) => (
+                                          <span
+                                            key={sIdx}
+                                            className="px-2 py-0.5 rounded-md bg-[#E8EEF5] border border-white/60 shadow-neu-btn text-[9px] font-bold text-slate-600"
+                                          >
+                                            {src}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Message Footer Actions */}
+                                    <div className="pt-1 flex items-center justify-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyChatMessage(msg.id, msg.content)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-[10px] font-bold text-slate-700 transition-all cursor-pointer"
+                                        title="Copy response to clipboard"
+                                      >
+                                        {copiedChatId === msg.id ? (
+                                          <>
+                                            <Check className="w-3 h-3 text-emerald-600" />
+                                            <span className="text-emerald-600">Copied</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy className="w-3 h-3 text-slate-500" />
+                                            <span>Copy</span>
+                                          </>
+                                        )}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleInsertToReply(msg.id, msg.content)}
+                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-[10px] font-bold text-sky-700 hover:text-sky-900 transition-all cursor-pointer"
+                                        title="Transfer this advice or drafted content into the Smart Reply editor"
+                                      >
+                                        {insertedReplyId === msg.id ? (
+                                          <>
+                                            <Check className="w-3 h-3 text-emerald-600" />
+                                            <span className="text-emerald-600">Inserted into Reply</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <CornerDownLeft className="w-3 h-3 text-sky-600" />
+                                            <span>Use in Smart Reply</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* User Avatar */}
+                              {isUser && (
+                                <div className="w-7 h-7 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/60 text-slate-700 flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-black">
+                                  AG
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Animated Typing Indicator */}
+                        {loadingChat && (
+                          <div className="flex gap-3 items-start animate-in fade-in duration-150">
+                            <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                              <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                            </div>
+                            <div className="p-3.5 rounded-2xl rounded-tl-sm bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-xs text-slate-600 flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-slate-700">
+                                Gemini is retrieving case context & thinking
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-bounce" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Chat Error Alert */}
+                        {chatError && (
+                          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                              <span>{chatError}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSendChatMessage()}
+                              className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px] hover:bg-rose-200 cursor-pointer"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Scroll anchor */}
+                        <div ref={chatBottomRef} />
+                      </div>
+
+                      {/* Quick Suggestion Chips Bar */}
+                      <div className="p-2.5 sm:px-4 bg-[#E8EEF5] border-t border-slate-300/40 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                        <span className="text-[10px] text-slate-400 font-bold shrink-0">Prompts:</span>
+                        {[
+                          '🎯 Extract customer key demands',
+                          '🔍 Root cause analysis & troubleshooting',
+                          '📜 Datastraw SLA deadline & escalation rule',
+                          '✉️ Draft tailored resolution response',
+                          '📊 Customer interaction history & sentiment',
+                        ].map((chip, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            disabled={loadingChat}
+                            onClick={() => handleSendChatMessage(chip)}
+                            className="px-2.5 py-1 rounded-lg bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-[10px] font-bold text-slate-700 hover:text-sky-600 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Sticky Bottom Chat Input Bar */}
+                      <div className="p-3 sm:p-4 bg-[#E8EEF5] border-t border-slate-300/40 space-y-1.5">
+                        <div className="relative flex items-center">
+                          <textarea
+                            rows={1}
+                            value={chatInput}
+                            disabled={loadingChat}
+                            onChange={(e) => setChatInput(e.target.value)}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleCustomQuery();
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendChatMessage();
+                              }
                             }}
-                            placeholder="Ask any question about this ticket (e.g. What is the customer requesting?)"
-                            className="w-full pl-3.5 pr-20 py-2.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-400 font-sans"
+                            placeholder="Ask Gemini anything about this ticket (e.g. 'What is the customer requesting and what are the next steps?')..."
+                            className="w-full pl-3.5 pr-24 py-2.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-400 font-sans resize-none max-h-32 min-h-[42px]"
                           />
                           <button
                             type="button"
-                            disabled={!customPrompt.trim() || loadingCustom}
-                            onClick={() => handleCustomQuery()}
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-black shadow-sm hover:brightness-105 active:scale-95 disabled:opacity-40 transition-all cursor-pointer flex items-center gap-1"
+                            disabled={!chatInput.trim() || loadingChat}
+                            onClick={() => handleSendChatMessage()}
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-black shadow-sm hover:brightness-105 active:scale-95 disabled:opacity-40 transition-all cursor-pointer flex items-center gap-1.5"
                           >
-                            {loadingCustom ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
+                            {loadingChat ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (
-                              <Send className="w-3 h-3" />
+                              <Send className="w-3.5 h-3.5" />
                             )}
-                            <span>Ask</span>
+                            <span>Send</span>
                           </button>
                         </div>
-
-                        {/* Quick Suggestion Chips */}
-                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                          <span className="text-[10px] text-slate-400 font-bold">Suggestions:</span>
-                          {[
-                            'Extract customer key demands',
-                            'Draft refund policy explanation',
-                            'Recommend next troubleshooting step',
-                          ].map((chip, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setCustomPrompt(chip);
-                                handleCustomQuery(chip);
-                              }}
-                              className="px-2.5 py-0.5 rounded-lg bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-[10px] font-bold text-slate-600 hover:text-sky-600 transition-all cursor-pointer"
-                            >
-                              {chip}
-                            </button>
-                          ))}
+                        <div className="flex items-center justify-between px-1 text-[10px] text-slate-400">
+                          <span>Press <strong>Enter ↵</strong> to send • <strong>Shift + Enter</strong> for new line</span>
+                          <span className="font-mono">Gemini RAG Grounded</span>
                         </div>
                       </div>
-
-                      {/* Custom Answer Output */}
-                      {customError ? (
-                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                          <span>{customError}</span>
-                        </div>
-                      ) : customAnswer ? (
-                        <div className="space-y-2 pt-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                              AI Answer
-                            </span>
-                            <button
-                              type="button"
-                              onClick={handleCopyCustom}
-                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-[10px] font-bold text-slate-700 transition-all cursor-pointer"
-                            >
-                              {copiedCustom ? (
-                                <>
-                                  <Check className="w-3 h-3 text-emerald-600" />
-                                  <span className="text-emerald-600 font-bold">Copied</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3 text-slate-500" />
-                                  <span>Copy</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                          <div className="p-3.5 bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 rounded-xl text-xs text-slate-800 leading-relaxed font-sans">
-                            {renderFormattedMarkdown(customAnswer)}
-                          </div>
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 )}

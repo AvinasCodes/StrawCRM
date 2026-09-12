@@ -433,13 +433,13 @@ CRITICAL RULES:
   };
 }
 
-export async function queryTicketAI(ticketId, query, ticketData = null) {
+export async function queryTicketAI(ticketId, query, ticketData = null, messages = []) {
   try {
     const res = await request(
       `/api/tickets/${encodeURIComponent(ticketId)}/ai-query`,
       {
         method: 'POST',
-        body: JSON.stringify({ query, ticket_data: ticketData }),
+        body: JSON.stringify({ query, ticket_data: ticketData, messages }),
       },
       30000
     );
@@ -448,28 +448,64 @@ export async function queryTicketAI(ticketId, query, ticketData = null) {
     console.warn('[AI Service] Backend AI query request fell back to direct Gemini client:', err);
   }
 
-  // Fallback: Direct Gemini Call for Custom Query
+  // Fallback: Direct Gemini RAG Call with full grounding context & conversation memory
+  const notesText = Array.isArray(ticketData?.notes) && ticketData.notes.length > 0
+    ? ticketData.notes.map((n) => `- [${n.created_at || 'Note'}] ${n.author_name || 'Agent'}: ${n.note_text || ''}`).join('\n')
+    : 'None recorded yet.';
+
+  const historyText = Array.isArray(messages) && messages.length > 0
+    ? messages.slice(-6).map((m) => `${m.role === 'user' ? 'Support Agent' : 'Gemini Copilot'}: ${m.content}`).join('\n')
+    : 'No prior messages in this conversation.';
+
   const prompt = `You are an expert AI Support Copilot assisting an internal Customer Support Agent at StrawCRM / Datastraw.
-The agent is asking a specific question or requesting an extraction about this support ticket.
+You are equipped with a RAG (Retrieval-Augmented Generation) engine grounded on live CRM data and support knowledge.
 
-TICKET DATA:
-- Ticket ID: #${ticketId}
-- Customer Name: ${ticketData?.customer_name || 'Customer'}
+=== RETRIEVED GROUNDING CONTEXT (RAG) ===
+
+[DOCUMENT 1: CURRENT TICKET DETAILS]
+- Ticket ID: #${String(ticketId).replace(/^#/, '')}
+- Customer Name: ${ticketData?.customer_name || 'Customer'} (${ticketData?.customer_email || 'No email'})
 - Subject: ${ticketData?.subject || 'Support Ticket'}
-- Customer Issue / Description: ${ticketData?.description || ''}
-- Status: ${ticketData?.status || 'Open'}
+- Priority: ${ticketData?.priority || 'Normal'}
+- Current Status: ${ticketData?.status || 'Open'}
+- Category: ${ticketData?.category || 'General Support'}
+- Problem Description:
+${ticketData?.description || 'No description provided.'}
 
-AGENT'S REQUEST / QUERY:
+[DOCUMENT 2: INTERNAL AGENT NOTES & COLLABORATION]
+${notesText}
+
+[DOCUMENT 3: DATASTRAW CRM KNOWLEDGE & OPERATIONAL POLICIES]
+- Urgent / Critical SLA: Initial response < 1 hr, resolution target < 4 hrs.
+- High SLA: Initial response < 4 hrs, resolution target < 12 hrs.
+- Normal SLA: Initial response < 8 hrs, resolution target < 24 hrs.
+- Low SLA: Initial response < 24 hrs, resolution target < 48 hrs.
+- Troubleshooting standard: Check browser cache/cookies, verify auth token session, test in incognito mode.
+- Escalation: Tier 1 Support Agent -> Tier 2 Technical Support -> Operations Lead.
+- Refunds: Evaluated by Billing Lead within 3-5 business days.
+
+=== END RETRIEVED GROUNDING CONTEXT ===
+
+=== RECENT CONVERSATION HISTORY ===
+${historyText}
+=== END CONVERSATION HISTORY ===
+
+CURRENT AGENT INQUIRY:
 "${query.trim()}"
 
-CRITICAL INSTRUCTIONS:
-1. Directly answer the agent's request based on the ticket data above.
-2. DO NOT write an email or customer greeting like "Dear Customer" or "Thank you for reaching out" unless the agent explicitly commanded "write an email to customer".
-3. If the query asks to "Extract customer key demands", "Extract demands", "Summarize requirements", etc.:
-   - Provide a clean, structured bulleted list of exactly what the customer is asking for or demanding.
-4. If the query asks for "Troubleshooting steps", "Policy explanation", or a factual question about the ticket:
-   - Provide clear, direct, actionable advice or facts for the agent.
-5. Provide a direct, comprehensive, and helpful answer for the support agent. No filler greetings or conversational fluff.`;
+CRITICAL COPILOT INSTRUCTIONS:
+1. Ground your response directly in the retrieved ticket data, notes, and CRM policies above.
+2. Provide direct, actionable, and structured information (checklists, bullet points, next steps).
+3. If asked to extract demands or troubleshoot, provide concrete, practical solutions.
+4. You are speaking directly to the internal support agent.
+5. Use clean markdown formatting.`;
+
+  const sources = [
+    `Ticket #${String(ticketId).replace(/^#/, '')} Details`,
+    ...(Array.isArray(ticketData?.notes) && ticketData.notes.length > 0 ? [`${ticketData.notes.length} Internal Notes`] : []),
+    `Customer: ${ticketData?.customer_name || 'Customer'}`,
+    'Datastraw SLA & Support Policy KB',
+  ];
 
   try {
     const directAnswer = await callDirectGemini(prompt);
@@ -478,6 +514,7 @@ CRITICAL INSTRUCTIONS:
         ticket_id: ticketId,
         query: query,
         answer: directAnswer.trim(),
+        sources: sources,
       };
     }
   } catch (e) {
@@ -487,7 +524,8 @@ CRITICAL INSTRUCTIONS:
   return {
     ticket_id: ticketId,
     query: query,
-    answer: `Ticket #${ticketId} Analysis:\n• Customer: ${ticketData?.customer_name || 'Customer'}\n• Issue: ${ticketData?.subject || 'Support Request'}\n• Details: ${ticketData?.description || 'No description provided.'}`,
+    answer: `Ticket #${ticketId} Grounded Analysis:\n• Customer: ${ticketData?.customer_name || 'Customer'}\n• Issue: ${ticketData?.subject || 'Support Request'}\n• Details: ${ticketData?.description || 'No description provided.'}`,
+    sources: sources,
   };
 }
 

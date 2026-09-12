@@ -82,11 +82,11 @@ async def execute_ticket_ai_query(
     user: dict = Depends(get_current_user),
 ):
     """
-    Execute a targeted custom question, demand extraction, or triage query
+    Execute a grounded RAG query or multi-turn chat interaction with Gemini AI
     specifically for the internal support agent.
     Protected endpoint: requires valid Firebase JWT Bearer token.
     """
     fallback = payload.ticket_data
     ticket = _resolve_ticket(ticket_id, fallback)
-    return AIService.execute_custom_query(ticket, query=payload.query)
+    return AIService.execute_rag_query(ticket, query=payload.query, messages=payload.messages or [])
 
