@@ -36,7 +36,7 @@ async function getAuthHeaders() {
         return headers;
       }
     }
-  } catch {}
+  } catch { }
 
   try {
     const raw = localStorage.getItem('strawcrm_auth_session');
@@ -48,7 +48,7 @@ async function getAuthHeaders() {
         return headers;
       }
     }
-  } catch {}
+  } catch { }
 
   headers['Authorization'] = 'Bearer dev-test-token';
   return headers;
@@ -73,14 +73,14 @@ const _deletedCustomerIds = (() => {
       const arr = JSON.parse(raw);
       if (Array.isArray(arr)) arr.forEach((id) => set.add(String(id).toUpperCase().trim()));
     }
-  } catch {}
+  } catch { }
   return set;
 })();
 
 function persistDeletedCustomers() {
   try {
     localStorage.setItem(DELETED_CUSTOMERS_STORAGE_KEY, JSON.stringify(Array.from(_deletedCustomerIds)));
-  } catch {}
+  } catch { }
 }
 
 let _localTickets = (() => {
@@ -101,7 +101,7 @@ let _localTickets = (() => {
         });
       }
     }
-  } catch {}
+  } catch { }
   return [];
 })();
 
@@ -121,7 +121,7 @@ function persistLocalTickets() {
       };
     });
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(light));
-  } catch {}
+  } catch { }
 }
 
 function notifyDetailListeners(cleanId, ticket) {
@@ -144,7 +144,7 @@ function notifyLocalListeners() {
   _listeners.forEach((cb) => {
     try {
       cb([..._localTickets]);
-    } catch {}
+    } catch { }
   });
 }
 
@@ -162,105 +162,105 @@ export async function syncFromBackend() {
       const res = await fetch(`${API_BASE_URL}/api/tickets`, {
         headers: { Authorization: headers.Authorization, Accept: 'application/json' },
       });
-    if (res.ok) {
-      const serverTickets = await res.json();
-      if (Array.isArray(serverTickets)) {
-        const map = new Map();
+      if (res.ok) {
+        const serverTickets = await res.json();
+        if (Array.isArray(serverTickets)) {
+          const map = new Map();
 
-        // 1. Index server tickets — Server is the authoritative source of truth for inquiry details
-        // Skip any tickets that were deleted locally (tombstone guard)
-        serverTickets.forEach((st) => {
-          const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
-          if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
-          const key = (st.ticket_id || '').toUpperCase();
-          const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
+          // 1. Index server tickets — Server is the authoritative source of truth for inquiry details
+          // Skip any tickets that were deleted locally (tombstone guard)
+          serverTickets.forEach((st) => {
+            const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
+            if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
+            const key = (st.ticket_id || '').toUpperCase();
+            const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
 
-          const merged = {
-            ...st,
-            customer_name: (st.customer_name && st.customer_name.trim()) || lt?.customer_name || 'Customer',
-            customer_email: st.customer_email || lt?.customer_email || '',
-            subject: (st.subject && st.subject.trim()) || lt?.subject || 'Support Ticket',
-            description: (st.description && st.description.trim()) || lt?.description || '',
-            customer_id: st.customer_id || lt?.customer_id || 'CUST-001',
-            assigned_to_name: st.assigned_to_name !== undefined ? st.assigned_to_name : (lt?.assigned_to_name || ''),
-            assigned_to_email: st.assigned_to_email !== undefined ? st.assigned_to_email : (lt?.assigned_to_email || ''),
-            assigned_to_id: st.assigned_to_id !== undefined ? st.assigned_to_id : (lt?.assigned_to_id || ''),
-            priority: st.priority || lt?.priority || 'Normal',
-            raised_by_user_id: (st.raised_by_user_id && st.raised_by_user_id !== 'usr_agent_01')
-              ? st.raised_by_user_id
-              : (lt?.raised_by_user_id || st.raised_by_user_id || ''),
-            raised_by_name: st.raised_by_name || lt?.raised_by_name || st.customer_name || 'Customer',
-            created_at: st.created_at || lt?.created_at || new Date().toISOString(),
-          };
+            const merged = {
+              ...st,
+              customer_name: (st.customer_name && st.customer_name.trim()) || lt?.customer_name || 'Customer',
+              customer_email: st.customer_email || lt?.customer_email || '',
+              subject: (st.subject && st.subject.trim()) || lt?.subject || 'Support Ticket',
+              description: (st.description && st.description.trim()) || lt?.description || '',
+              customer_id: st.customer_id || lt?.customer_id || 'CUST-001',
+              assigned_to_name: st.assigned_to_name !== undefined ? st.assigned_to_name : (lt?.assigned_to_name || ''),
+              assigned_to_email: st.assigned_to_email !== undefined ? st.assigned_to_email : (lt?.assigned_to_email || ''),
+              assigned_to_id: st.assigned_to_id !== undefined ? st.assigned_to_id : (lt?.assigned_to_id || ''),
+              priority: st.priority || lt?.priority || 'Normal',
+              raised_by_user_id: (st.raised_by_user_id && st.raised_by_user_id !== 'usr_agent_01')
+                ? st.raised_by_user_id
+                : (lt?.raised_by_user_id || st.raised_by_user_id || ''),
+              raised_by_name: st.raised_by_name || lt?.raised_by_name || st.customer_name || 'Customer',
+              created_at: st.created_at || lt?.created_at || new Date().toISOString(),
+            };
 
-          if (lt) {
-            const ltTime = new Date(lt.updated_at || lt.created_at || 0).getTime();
-            const serverTime = new Date(st.updated_at || st.created_at || 0).getTime();
-            const useServer = serverTime >= ltTime;
+            if (lt) {
+              const ltTime = new Date(lt.updated_at || lt.created_at || 0).getTime();
+              const serverTime = new Date(st.updated_at || st.created_at || 0).getTime();
+              const useServer = serverTime >= ltTime;
 
-            merged.status = useServer ? st.status : (lt.status || st.status);
-            merged.updated_at = useServer ? st.updated_at : (lt.updated_at || st.updated_at);
-            if (!useServer) {
-              if (lt.assigned_to_name !== undefined) merged.assigned_to_name = lt.assigned_to_name;
-              if (lt.assigned_to_email !== undefined) merged.assigned_to_email = lt.assigned_to_email;
-              if (lt.assigned_to_id !== undefined) merged.assigned_to_id = lt.assigned_to_id;
-              if (lt.priority) merged.priority = lt.priority;
+              merged.status = useServer ? st.status : (lt.status || st.status);
+              merged.updated_at = useServer ? st.updated_at : (lt.updated_at || st.updated_at);
+              if (!useServer) {
+                if (lt.assigned_to_name !== undefined) merged.assigned_to_name = lt.assigned_to_name;
+                if (lt.assigned_to_email !== undefined) merged.assigned_to_email = lt.assigned_to_email;
+                if (lt.assigned_to_id !== undefined) merged.assigned_to_id = lt.assigned_to_id;
+                if (lt.priority) merged.priority = lt.priority;
+              }
+
+              // Notes: merge server notes with any local offline notes
+              const serverNoteIds = new Set((st.notes || []).map((n) => String(n.id || n.note_text)));
+              const extraLocalNotes = (lt.notes || []).filter((n) => !serverNoteIds.has(String(n.id || n.note_text)));
+              merged.notes = [...(st.notes || []), ...extraLocalNotes];
+
+              merged.attachments = (st.attachments && st.attachments.length > 0)
+                ? st.attachments
+                : (lt.attachments || []);
+            } else {
+              merged.notes = st.notes || [];
+              merged.attachments = st.attachments || [];
             }
 
-            // Notes: merge server notes with any local offline notes
-            const serverNoteIds = new Set((st.notes || []).map((n) => String(n.id || n.note_text)));
-            const extraLocalNotes = (lt.notes || []).filter((n) => !serverNoteIds.has(String(n.id || n.note_text)));
-            merged.notes = [...(st.notes || []), ...extraLocalNotes];
+            map.set(key, merged);
+          });
 
-            merged.attachments = (st.attachments && st.attachments.length > 0)
-              ? st.attachments
-              : (lt.attachments || []);
-          } else {
-            merged.notes = st.notes || [];
-            merged.attachments = st.attachments || [];
-          }
-
-          map.set(key, merged);
-        });
-
-        // Preserve any recent optimistic tickets (< 90s) that haven't arrived from server yet
-        const nowMs = Date.now();
-        _localTickets.forEach((lt) => {
-          const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
-          if (_deletedIds.has(ltKey)) return;
-          if (!map.has(ltKey)) {
-            const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
-            if (ageMs < 90000) {
-              map.set(ltKey, lt);
+          // Preserve any recent optimistic tickets (< 90s) that haven't arrived from server yet
+          const nowMs = Date.now();
+          _localTickets.forEach((lt) => {
+            const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
+            if (_deletedIds.has(ltKey)) return;
+            if (!map.has(ltKey)) {
+              const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
+              if (ageMs < 90000) {
+                map.set(ltKey, lt);
+              }
             }
-          }
-        });
+          });
 
-        // Filter out locally-deleted tickets from the merged result
-        _localTickets = Array.from(map.values()).filter(
-          (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
-        );
-        _localTickets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-        notifyLocalListeners();
+          // Filter out locally-deleted tickets from the merged result
+          _localTickets = Array.from(map.values()).filter(
+            (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
+          );
+          _localTickets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+          notifyLocalListeners();
 
-        // Notify any active detail listeners of updated ticket state
-        _detailListeners.forEach((cbs, key) => {
-          const t = _localTickets.find((item) => (item.ticket_id || '').toUpperCase() === key);
-          if (t) {
-            cbs.forEach((cb) => {
-              try { cb({ ...t }); } catch {}
-            });
-          }
-        });
+          // Notify any active detail listeners of updated ticket state
+          _detailListeners.forEach((cbs, key) => {
+            const t = _localTickets.find((item) => (item.ticket_id || '').toUpperCase() === key);
+            if (t) {
+              cbs.forEach((cb) => {
+                try { cb({ ...t }); } catch { }
+              });
+            }
+          });
+        }
       }
+    } catch (err) {
+      // Backend offline or unreachable, local store continues safely
+    } finally {
+      _syncPromise = null;
     }
-  } catch (err) {
-    // Backend offline or unreachable, local store continues safely
-  } finally {
-    _syncPromise = null;
-  }
-})();
-return _syncPromise;
+  })();
+  return _syncPromise;
 }
 
 // Kick off background sync immediately
@@ -535,7 +535,7 @@ export function dedupNotes(notes) {
  * Multi-ID enabled: supports Ticket ID, Customer ID, numeric digits, and email.
  */
 export function subscribeTicketDetail(ticketId, onUpdate, onError) {
-  if (!ticketId) return () => {};
+  if (!ticketId) return () => { };
 
   const rawId = String(ticketId).trim();
   const cleanId = rawId.replace(/^#/, '').trim();
@@ -599,7 +599,7 @@ export function subscribeTicketDetail(ticketId, onUpdate, onError) {
           onUpdate(fullMerged);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   });
 
   if (!db) {
@@ -801,8 +801,8 @@ export async function createTicket(ticketData) {
   if (db) {
     try {
       const ticketRef = doc(db, TICKETS_COLLECTION, newTicket.ticket_id);
-      setDoc(ticketRef, newTicket).catch(() => {});
-    } catch {}
+      setDoc(ticketRef, newTicket).catch(() => { });
+    } catch { }
   }
 
   return {
@@ -855,16 +855,16 @@ export async function deleteCustomer(customerId) {
   // 4. Also delete from Firestore if active
   if (db) {
     try {
-      deleteDoc(doc(db, CUSTOMERS_COLLECTION, customerId)).catch(() => {});
+      deleteDoc(doc(db, CUSTOMERS_COLLECTION, customerId)).catch(() => { });
       if (cleanId) {
-        deleteDoc(doc(db, CUSTOMERS_COLLECTION, cleanId)).catch(() => {});
+        deleteDoc(doc(db, CUSTOMERS_COLLECTION, cleanId)).catch(() => { });
       }
       ticketsToDelete.forEach((t) => {
         if (t.ticket_id) {
-          deleteDoc(doc(db, TICKETS_COLLECTION, t.ticket_id)).catch(() => {});
+          deleteDoc(doc(db, TICKETS_COLLECTION, t.ticket_id)).catch(() => { });
         }
       });
-    } catch {}
+    } catch { }
   }
 
   return { success: true, customer_id: customerId, deleted_tickets: ticketsToDelete.length };
@@ -894,7 +894,7 @@ export async function addTicketAttachment(ticketId, attachment) {
       headers,
       body: JSON.stringify({ attachments: updatedAttachments }),
     });
-  } catch {}
+  } catch { }
 
   // 2. Sync to Firestore
   if (db) {
@@ -903,8 +903,8 @@ export async function addTicketAttachment(ticketId, attachment) {
       updateDoc(ticketRef, {
         attachments: arrayUnion(attachment),
         updated_at: nowIso,
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   }
 
   return attachment;
@@ -935,7 +935,7 @@ export async function addTicketAttachmentsBatch(ticketId, newAttachments) {
       headers,
       body: JSON.stringify({ attachments: updatedAttachments }),
     });
-  } catch {}
+  } catch { }
 
   // 2. Sync to Firestore
   if (db) {
@@ -944,8 +944,8 @@ export async function addTicketAttachmentsBatch(ticketId, newAttachments) {
       updateDoc(ticketRef, {
         attachments: arrayUnion(...newAttachments),
         updated_at: nowIso,
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   }
 
   return newAttachments;
@@ -976,7 +976,7 @@ export async function removeTicketAttachment(ticketId, attachmentId) {
       headers,
       body: JSON.stringify({ attachments: updatedAttachments }),
     });
-  } catch {}
+  } catch { }
 
   // 2. Sync to Firestore — use arrayRemove so snapshot can't resurrect the attachment
   if (db && removedAttachment) {
@@ -985,8 +985,8 @@ export async function removeTicketAttachment(ticketId, attachmentId) {
       updateDoc(ticketRef, {
         attachments: arrayRemove(removedAttachment),
         updated_at: nowIso,
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   }
 }
 
@@ -1086,7 +1086,7 @@ export async function updateTicket(ticketId, updateData) {
       setDoc(ticketRef, updates, { merge: true }).catch((err) => {
         console.warn('[firestoreService] Firestore setDoc error:', err);
       });
-      setDoc(hashTicketRef, updates, { merge: true }).catch(() => {});
+      setDoc(hashTicketRef, updates, { merge: true }).catch(() => { });
 
       if (updateData.notes && updateData.notes.trim()) {
         const noteItem = {
@@ -1094,9 +1094,9 @@ export async function updateTicket(ticketId, updateData) {
           author_name: updateData.author_name || 'Support Agent',
           created_at: nowIso,
         };
-        setDoc(ticketRef, { notes: arrayUnion(noteItem) }, { merge: true }).catch(() => {});
+        setDoc(ticketRef, { notes: arrayUnion(noteItem) }, { merge: true }).catch(() => { });
         const notesRef = collection(db, TICKETS_COLLECTION, cleanId, NOTES_SUBCOLLECTION);
-        addDoc(notesRef, noteItem).catch(() => {});
+        addDoc(notesRef, noteItem).catch(() => { });
       }
     } catch (fsErr) {
       console.warn('[firestoreService] Firestore sync error:', fsErr);
@@ -1142,8 +1142,8 @@ export async function deleteTicket(ticketId) {
   if (db) {
     try {
       const ticketRef = doc(db, TICKETS_COLLECTION, cleanId);
-      deleteDoc(ticketRef).catch(() => {});
-    } catch {}
+      deleteDoc(ticketRef).catch(() => { });
+    } catch { }
   }
 
   return true;
@@ -1184,8 +1184,8 @@ export async function deleteTicketsBulk(ticketIds = []) {
     cleanIds.forEach((cleanId) => {
       try {
         const ticketRef = doc(db, TICKETS_COLLECTION, cleanId);
-        deleteDoc(ticketRef).catch(() => {});
-      } catch {}
+        deleteDoc(ticketRef).catch(() => { });
+      } catch { }
     });
   }
 
@@ -1273,7 +1273,7 @@ export async function addNote(ticketId, noteText, author = 'Support Agent', auth
           { notes: [newNoteItem], updated_at: nowIso },
           { merge: true }
         );
-      } catch {}
+      } catch { }
     }
   }
 
@@ -1337,8 +1337,8 @@ export function subscribeCustomers(onUpdate, onError) {
   }
 
   let latestCustomers = [];
-  let unsubTickets = () => {};
-  let unsubFirestore = () => {};
+  let unsubTickets = () => { };
+  let unsubFirestore = () => { };
 
   // 1. Try Firestore customers collection
   if (db) {
@@ -1368,9 +1368,9 @@ export function subscribeCustomers(onUpdate, onError) {
             onUpdate(cleaned);
           }
         },
-        () => {} // Firestore collection may not exist yet — silent fail
+        () => { } // Firestore collection may not exist yet — silent fail
       );
-    } catch {}
+    } catch { }
   }
 
   // 2. Fetch from backend REST API
@@ -1378,18 +1378,7 @@ export function subscribeCustomers(onUpdate, onError) {
     fetch(`${API_BASE_URL}/api/customers`, {
       headers: { Authorization: headers.Authorization, Accept: 'application/json' },
     })
-      .then(async (res) => {
-        if (res.status === 401 && isConfigured && auth && auth.currentUser) {
-          try {
-            const freshToken = await auth.currentUser.getIdToken(true);
-            const retryRes = await fetch(`${API_BASE_URL}/api/customers`, {
-              headers: { Authorization: `Bearer ${freshToken}`, Accept: 'application/json' },
-            });
-            return retryRes.ok ? retryRes.json() : null;
-          } catch {}
-        }
-        return res.ok ? res.json() : null;
-      })
+      .then((res) => (res.ok ? res.json() : null))
       .then((serverCustomers) => {
         if (Array.isArray(serverCustomers) && serverCustomers.length > 0) {
           // Merge with any Firestore data (backend is more complete for ticket counts)
@@ -1405,7 +1394,7 @@ export function subscribeCustomers(onUpdate, onError) {
           onUpdate(merged);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   });
 
   // 3. Subscribe to tickets as real-time fallback (ensures live updates)
@@ -1506,7 +1495,7 @@ let _localTeamMessages = (() => {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch {}
+  } catch { }
   return [];
 })();
 
@@ -1515,11 +1504,11 @@ const _teamMessageListeners = new Set();
 function notifyTeamMessageListeners() {
   try {
     localStorage.setItem(TEAM_MESSAGES_STORAGE_KEY, JSON.stringify(_localTeamMessages));
-  } catch {}
+  } catch { }
   _teamMessageListeners.forEach((cb) => {
     try {
       cb([..._localTeamMessages]);
-    } catch {}
+    } catch { }
   });
 }
 
@@ -1527,7 +1516,7 @@ export function subscribeTeamMessages(onUpdate, onError) {
   _teamMessageListeners.add(onUpdate);
   onUpdate([..._localTeamMessages]);
 
-  let unsubFs = () => {};
+  let unsubFs = () => { };
   if (db) {
     try {
       const q = collection(db, 'team_messages');
@@ -1551,7 +1540,7 @@ export function subscribeTeamMessages(onUpdate, onError) {
           if (onError) onError(err);
         }
       );
-    } catch {}
+    } catch { }
   }
 
   return () => {
@@ -1578,15 +1567,15 @@ export async function sendTeamMessage({ text, authorName, authorEmail, mentions 
   if (mentions && mentions.length > 0) {
     mentions.forEach((tId) => {
       const cleanId = String(tId).replace(/^#/, '').toUpperCase();
-      addNote(cleanId, `[Team Chat Mention] ${text.trim()}`, authorName, authorEmail).catch(() => {});
+      addNote(cleanId, `[Team Chat Mention] ${text.trim()}`, authorName, authorEmail).catch(() => { });
     });
   }
 
   if (db) {
     try {
       const docRef = doc(db, 'team_messages', newId);
-      setDoc(docRef, newMsg).catch(() => {});
-    } catch {}
+      setDoc(docRef, newMsg).catch(() => { });
+    } catch { }
   }
 
   return newMsg;

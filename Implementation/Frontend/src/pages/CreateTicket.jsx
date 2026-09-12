@@ -89,7 +89,7 @@ export default function CreateTicket({ onNavigate }) {
           setExistingCategories(combined);
         }
       },
-      () => {}
+      () => { }
     );
     return () => unsubscribeTickets();
   }, []);
@@ -153,7 +153,7 @@ export default function CreateTicket({ onNavigate }) {
       (list) => {
         if (Array.isArray(list)) setExistingCustomers(list);
       },
-      () => {}
+      () => { }
     );
     return () => unsubscribe();
   }, []);
@@ -323,31 +323,31 @@ export default function CreateTicket({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 flex flex-col min-h-0 bg-[#E8EEF5] text-slate-900 p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 no-scrollbar w-full overflow-y-auto">
+    <main className="flex-1 flex flex-col min-h-0 bg-[#E8EEF5] text-slate-900 p-4 sm:p-5 lg:p-6 no-scrollbar w-full overflow-y-auto">
       <div className="w-full max-w-7xl mx-auto flex flex-col min-h-0">
         {/* ─────────────────────────────────────────────────────────────────────────
-            1. HEADER & BREADCRUMB (Mobile Optimized)
+            1. HEADER & BREADCRUMB (Clean, full width, no Neumorphism badge)
            ───────────────────────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-slate-300/40 shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-300/40 shrink-0">
+          <div className="flex items-center gap-3.5">
             <button
               type="button"
               onClick={handleCancel}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 flex items-center justify-center text-slate-600 hover:text-sky-600 transition-all cursor-pointer shrink-0"
+              className="w-10 h-10 rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 flex items-center justify-center text-slate-600 hover:text-sky-600 transition-all cursor-pointer shrink-0"
               title="Back to Tickets"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-400">Tickets</span>
                 <span className="text-xs text-slate-400">/</span>
-                <h1 className="text-base sm:text-2xl font-black text-slate-900 tracking-tight">
-                  New Ticket
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Create Support Ticket
                 </h1>
               </div>
-              <p className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-0.5 hidden sm:block">
-                Dispatch a customer ticket directly into the StrawCRM queue.
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                Dispatch a customer ticket directly into the StrawCRM queue with live tracking.
               </p>
             </div>
           </div>
@@ -546,9 +546,8 @@ export default function CreateTicket({ onNavigate }) {
                       placeholder="Explain the technical problem, customer circumstances, error logs, or steps to reproduce..."
                       disabled={submitting || success}
                       required
-                      className={`neu-input w-full p-3 text-xs font-normal text-slate-800 resize-y min-h-[180px] max-h-[500px] placeholder:font-normal placeholder:text-slate-400 transition-[height] duration-200 ${
-                        isDescriptionExpanded ? 'h-72 sm:h-80' : 'h-48 sm:h-52'
-                      }`}
+                      className={`neu-input w-full p-3 text-xs font-normal text-slate-800 resize-y min-h-[180px] max-h-[500px] placeholder:font-normal placeholder:text-slate-400 transition-[height] duration-200 ${isDescriptionExpanded ? 'h-72 sm:h-80' : 'h-48 sm:h-52'
+                        }`}
                     />
                   </div>
                 </div>
@@ -652,11 +651,10 @@ export default function CreateTicket({ onNavigate }) {
                               key={p.id}
                               type="button"
                               onClick={() => setPriority(p.id)}
-                              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs transition-all duration-200 cursor-pointer ${
-                                isSelected
+                              className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs transition-all duration-200 cursor-pointer ${isSelected
                                   ? `bg-[#E8EEF5] shadow-neu-btn border border-white/90 ${p.activeText}`
                                   : 'text-slate-500 hover:text-slate-800 font-semibold'
-                              }`}
+                                }`}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${p.dot} ${isSelected ? 'shadow-[0_0_6px_currentColor]' : ''}`} />
                               <span>{p.label}</span>

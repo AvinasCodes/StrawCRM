@@ -66,7 +66,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
           setExistingCategories(combined);
         }
       },
-      () => {}
+      () => { }
     );
     return () => unsubscribeTickets();
   }, []);
@@ -324,7 +324,6 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
               </label>
               <input
                 id="customer-name"
-                name="customerName"
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
@@ -340,7 +339,6 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
               </label>
               <input
                 id="customer-email"
-                name="customerEmail"
                 type="email"
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
@@ -357,7 +355,6 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
             </label>
             <input
               id="ticket-subject"
-              name="subject"
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
@@ -382,7 +379,6 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
                 <div className="relative">
                   <input
                     id="modal-ticket-category"
-                    name="category"
                     type="text"
                     value={category}
                     onChange={(e) => handleCategoryChange(e.target.value)}
@@ -499,11 +495,10 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
                     key={p.id}
                     type="button"
                     onClick={() => setPriority(p.id)}
-                    className={`h-full px-1 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                      active
+                    className={`h-full px-1 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer ${active
                         ? 'bg-white text-slate-900 shadow-xs border border-slate-300/80 font-black'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
                     <span>{p.label}</span>
@@ -520,11 +515,10 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
             </label>
             <textarea
               id="ticket-desc"
-              name="description"
               rows={2.5}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide context regarding the customer inquiry or technical issue..."
+              placeholder="Provide complete details about the issue or request..."
               required
               className="w-full p-2.5 bg-[#E2E9F2] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.08)] border border-slate-300/60 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/30 resize-none transition-all font-medium leading-normal"
             />

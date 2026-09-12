@@ -160,7 +160,6 @@ async def get_current_user(
                     detail="Authentication token has expired. Please sign in again.",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            logger.debug("Token expired in development mode, falling through to claims decoder")
         except Exception as err:
             logger.debug("Live Firebase token verification failed: %s", err)
 
@@ -176,6 +175,15 @@ async def get_current_user(
             }
     except Exception:
         pass
+
+    # Development auto-fallback for any session token
+    if settings.ENVIRONMENT == "development":
+        return {
+            "sub": "usr_dev",
+            "email": "agent@datastraw.in",
+            "name": "Support Agent",
+            "role": "authenticated",
+        }
 
     # 4. Support custom user tokens (e.g., usr_..., user_...)
     if token.startswith("usr_") or token.startswith("user_"):

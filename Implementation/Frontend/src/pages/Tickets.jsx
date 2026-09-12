@@ -398,27 +398,27 @@ export default function Tickets({ onNavigate }) {
     selectedAgentFilter !== 'all';
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 w-full bg-[#E8EEF5] text-slate-800 p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 space-y-3 sm:space-y-4 no-scrollbar max-w-7xl mx-auto overflow-y-auto lg:overflow-hidden">
+    <main className="flex-1 flex flex-col h-full min-h-0 w-full bg-[#E8EEF5] text-slate-800 p-4 sm:p-5 lg:p-6 space-y-4 no-scrollbar max-w-7xl mx-auto overflow-y-auto lg:overflow-hidden">
       {/* ─────────────────────────────────────────────────────────────────────────
-          1. HEADER WITH STATS & ACTIONS (Neumorphic Soft UI - Mobile Optimized)
+          1. HEADER WITH STATS & ACTIONS (Neumorphic Soft UI)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 flex items-center justify-between gap-2.5 pb-2 border-b border-slate-300/40">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-300/40">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               Tickets
             </h1>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-xl text-[11px] font-black bg-[#E8EEF5] text-sky-600 shadow-neu-btn border border-white/80">
-              <Ticket className="w-3 h-3 text-sky-500" />
-              {totalTickets}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black bg-[#E8EEF5] text-sky-600 shadow-neu-btn border border-white/80">
+              <Ticket className="w-3.5 h-3.5 text-sky-500" />
+              {totalTickets} {totalTickets === 1 ? 'Ticket' : 'Tickets'}
             </span>
           </div>
-          <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate mt-0.5 hidden sm:block">
+          <p className="text-xs text-slate-500 mt-1 font-medium">
             Manage and track customer support requests across your workspace.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
           {/* Refresh Real-Time Button */}
           <button
             type="button"
@@ -429,19 +429,19 @@ export default function Tickets({ onNavigate }) {
             }}
             aria-label="Refresh tickets"
             title="Refresh tickets from backend"
-            className="p-2 sm:p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
+            className="p-2.5 rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
           >
-            <RotateCcw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-sky-600' : ''}`} />
+            <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin text-sky-600' : ''}`} />
           </button>
 
           {/* Primary CTA: + Create Ticket */}
           <button
             type="button"
             onClick={() => setCreateModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-black shadow-[3px_3px_10px_rgba(14,165,233,0.35),-2px_-2px_6px_rgba(255,255,255,0.7)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white text-xs font-bold shadow-[4px_4px_12px_rgba(14,165,233,0.35),-2px_-2px_8px_rgba(255,255,255,0.7)] hover:shadow-[6px_6px_16px_rgba(14,165,233,0.45),-3px_-3px_10px_rgba(255,255,255,0.9)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>New Ticket</span>
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>Create Ticket</span>
           </button>
         </div>
       </div>
@@ -456,8 +456,6 @@ export default function Tickets({ onNavigate }) {
             <Search className="w-4 h-4 stroke-[2.3] transition-transform duration-200 group-hover/search:scale-110 group-focus-within/search:scale-110" />
           </div>
           <input
-            id="tickets-search-input"
-            name="ticketsSearch"
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -483,9 +481,9 @@ export default function Tickets({ onNavigate }) {
         </div>
 
         {/* Status Tabs, Agent Filter, & Time Dropdown */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 self-stretch sm:self-auto">
+        <div className="flex items-center gap-2.5 self-stretch sm:self-auto flex-wrap">
           {/* Segmented Status Tabs in Sunken Track */}
-          <div className="flex items-center gap-1 bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 overflow-x-auto no-scrollbar max-w-full shrink-0">
+          <div className="flex items-center gap-1 bg-[#E2E9F2] shadow-neu-inset p-1 rounded-2xl border border-white/60 overflow-x-auto no-scrollbar max-w-full">
             {['All Status', 'Open', 'In Progress', 'Closed'].map((status) => {
               const active = selectedStatus === status;
               return (
@@ -494,8 +492,8 @@ export default function Tickets({ onNavigate }) {
                   type="button"
                   onClick={() => setSelectedStatus(status)}
                   className={`px-3 py-1.5 rounded-xl transition-all duration-150 cursor-pointer text-xs shrink-0 ${active
-                      ? 'bg-[#E8EEF5] text-sky-600 font-extrabold shadow-neu-btn border border-white/80'
-                      : 'text-slate-600 hover:text-slate-900 font-medium'
+                    ? 'bg-[#E8EEF5] text-sky-600 font-extrabold shadow-neu-btn border border-white/80'
+                    : 'text-slate-600 hover:text-slate-900 font-medium'
                     }`}
                 >
                   {status}
@@ -504,61 +502,59 @@ export default function Tickets({ onNavigate }) {
             })}
           </div>
 
-          {/* Secondary Filter Pills & Time Range */}
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full shrink-0 py-0.5">
-            {/* My Tickets Quick Pill */}
+          {/* My Tickets Quick Pill */}
+          <button
+            type="button"
+            onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'me' ? 'all' : 'me')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border ${selectedAgentFilter === 'me'
+              ? 'bg-emerald-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(16,185,129,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
+              : 'bg-[#E8EEF5] text-emerald-700 border-white/80 shadow-neu-btn hover:shadow-neu-card'
+              }`}
+            title="Show tickets assigned to me"
+          >
+            <span>⭐ My Tickets</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'me'
+                ? 'bg-emerald-800 text-white'
+                : 'bg-[#E2E9F2] shadow-neu-inset text-emerald-800'
+                }`}
+            >
+              {myTicketsCount}
+            </span>
+          </button>
+
+          {/* Team Pool (Unassigned) Quick Pill */}
+          <button
+            type="button"
+            onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'unassigned' ? 'all' : 'unassigned')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border ${selectedAgentFilter === 'unassigned'
+              ? 'bg-amber-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(217,119,6,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
+              : 'bg-[#E8EEF5] text-amber-800 border-white/80 shadow-neu-btn hover:shadow-neu-card'
+              }`}
+            title="Show tickets in unassigned team pool"
+          >
+            <span>👥 Team Pool</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'unassigned'
+                ? 'bg-amber-800 text-white'
+                : 'bg-[#E2E9F2] shadow-neu-inset text-amber-900'
+                }`}
+            >
+              {unassignedTicketsCount}
+            </span>
+          </button>
+
+          {/* Time Range Custom Dropdown */}
+          <div className="relative">
             <button
               type="button"
-              onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'me' ? 'all' : 'me')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shrink-0 ${selectedAgentFilter === 'me'
-                  ? 'bg-emerald-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(16,185,129,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
-                  : 'bg-[#E8EEF5] text-emerald-700 border-white/80 shadow-neu-btn hover:shadow-neu-card'
-                }`}
-              title="Show tickets assigned to me"
+              onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 rounded-2xl text-xs font-bold text-slate-700 cursor-pointer transition-all"
             >
-              <span>⭐ My Tickets</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'me'
-                    ? 'bg-emerald-800 text-white'
-                    : 'bg-[#E2E9F2] shadow-neu-inset text-emerald-800'
-                  }`}
-              >
-                {myTicketsCount}
-              </span>
+              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <span>{selectedTimeRange}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
-
-            {/* Team Pool (Unassigned) Quick Pill */}
-            <button
-              type="button"
-              onClick={() => setSelectedAgentFilter(selectedAgentFilter === 'unassigned' ? 'all' : 'unassigned')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border shrink-0 ${selectedAgentFilter === 'unassigned'
-                  ? 'bg-amber-600 text-white border-white/40 shadow-[3px_3px_8px_rgba(217,119,6,0.4),-2px_-2px_6px_rgba(255,255,255,0.8)]'
-                  : 'bg-[#E8EEF5] text-amber-800 border-white/80 shadow-neu-btn hover:shadow-neu-card'
-                }`}
-              title="Show tickets in unassigned team pool"
-            >
-              <span>👥 Team Pool</span>
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${selectedAgentFilter === 'unassigned'
-                    ? 'bg-amber-800 text-white'
-                    : 'bg-[#E2E9F2] shadow-neu-inset text-amber-900'
-                  }`}
-              >
-                {unassignedTicketsCount}
-              </span>
-            </button>
-
-            {/* Time Range Custom Dropdown */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 rounded-xl text-xs font-bold text-slate-700 cursor-pointer transition-all shrink-0"
-              >
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <span>{selectedTimeRange}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-              </button>
 
             {timeDropdownOpen && (
               <div className="origin-top-right absolute right-0 mt-2 w-44 rounded-2xl bg-[#E8EEF5] shadow-neu-card border border-white/80 py-1.5 z-30 animate-in fade-in zoom-in-95 duration-100">
@@ -571,8 +567,8 @@ export default function Tickets({ onNavigate }) {
                       setTimeDropdownOpen(false);
                     }}
                     className={`w-full text-left px-4 py-2 text-xs transition-colors flex items-center justify-between ${selectedTimeRange === opt.value
-                        ? 'bg-[#E2E9F2] text-sky-600 font-extrabold shadow-neu-inset'
-                        : 'text-slate-700 hover:bg-white/40 font-medium'
+                      ? 'bg-[#E2E9F2] text-sky-600 font-extrabold shadow-neu-inset'
+                      : 'text-slate-700 hover:bg-white/40 font-medium'
                       }`}
                   >
                     <span>{opt.label}</span>
@@ -584,7 +580,6 @@ export default function Tickets({ onNavigate }) {
               </div>
             )}
           </div>
-        </div>
 
           {/* Reset Filters CTA */}
           {isFiltered && (
@@ -631,11 +626,10 @@ export default function Tickets({ onNavigate }) {
                 type="button"
                 onClick={() => handleViewModeChange('grid')}
                 title="Ticket Cards (Grid)"
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'grid'
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === 'grid'
                     ? 'bg-[#E8EEF5] text-sky-600 shadow-neu-btn border border-white/80'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline text-[11px]">Cards</span>
@@ -644,11 +638,10 @@ export default function Tickets({ onNavigate }) {
                 type="button"
                 onClick={() => handleViewModeChange('table')}
                 title="Table View (List)"
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'table'
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === 'table'
                     ? 'bg-[#E8EEF5] text-sky-600 shadow-neu-btn border border-white/80'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 <List className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline text-[11px]">Table</span>
@@ -1004,11 +997,10 @@ export default function Tickets({ onNavigate }) {
                     onClick={() => setCurrentPage(num)}
                     aria-label={`Page ${num}`}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-black transition-all cursor-pointer ${
-                      isActive
+                    className={`w-8 h-8 flex items-center justify-center rounded-xl text-xs font-black transition-all cursor-pointer ${isActive
                         ? 'bg-[#E2E9F2] text-sky-600 shadow-neu-inset border border-white/60'
                         : 'bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/80 text-slate-700'
-                    }`}
+                      }`}
                   >
                     {num}
                   </button>
@@ -1117,4 +1109,5 @@ export default function Tickets({ onNavigate }) {
     </main>
   );
 }
+
 

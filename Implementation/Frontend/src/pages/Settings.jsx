@@ -107,7 +107,7 @@ export default function SettingsPage({ onNavigate }) {
         const p = JSON.parse(raw);
         if (p.role) return p.role;
       }
-    } catch {}
+    } catch { }
     return 'Lead Administrator';
   });
 
@@ -118,7 +118,7 @@ export default function SettingsPage({ onNavigate }) {
       const currentRaw = localStorage.getItem('strawcrm_preferences');
       const existing = currentRaw ? JSON.parse(currentRaw) : {};
       localStorage.setItem('strawcrm_preferences', JSON.stringify({ ...existing, role: newRole }));
-    } catch {}
+    } catch { }
     setAgentsData((prev) => ({
       ...prev,
       users: prev.users.map((u) => (u.isCurrentUser ? { ...u, role: newRole } : u)),
@@ -150,7 +150,7 @@ export default function SettingsPage({ onNavigate }) {
         if (p.emailNotifications !== undefined) setEmailNotifications(p.emailNotifications);
         if (p.soundAlerts !== undefined) setSoundAlerts(p.soundAlerts);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   // Listen to external changes
@@ -173,7 +173,7 @@ export default function SettingsPage({ onNavigate }) {
         try {
           const p = JSON.parse(e.newValue || '{}');
           if (p.defaultViewMode) setDefaultViewMode(p.defaultViewMode);
-        } catch {}
+        } catch { }
       }
     };
 
@@ -196,7 +196,7 @@ export default function SettingsPage({ onNavigate }) {
       prefs.defaultViewMode = mode;
       localStorage.setItem('strawcrm_preferences', JSON.stringify(prefs));
       window.dispatchEvent(new CustomEvent('tickets-view-mode-change', { detail: { viewMode: mode } }));
-    } catch {}
+    } catch { }
   };
 
   // Instant handler for Sidebar Pin toggle
@@ -205,7 +205,7 @@ export default function SettingsPage({ onNavigate }) {
     try {
       localStorage.setItem('strawcrm_sidebar_pinned', String(val));
       window.dispatchEvent(new CustomEvent('sidebar-pinned-change', { detail: { isPinned: val } }));
-    } catch {}
+    } catch { }
   };
 
   const [testStatus, setTestStatus] = useState(null); // 'sound' | 'email'
@@ -268,7 +268,7 @@ export default function SettingsPage({ onNavigate }) {
       localStorage.setItem('strawcrm_sidebar_pinned', String(sidebarPinned));
       window.dispatchEvent(new CustomEvent('sidebar-pinned-change', { detail: { isPinned: sidebarPinned } }));
       window.dispatchEvent(new CustomEvent('tickets-view-mode-change', { detail: { viewMode: defaultViewMode } }));
-    } catch {}
+    } catch { }
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -280,7 +280,7 @@ export default function SettingsPage({ onNavigate }) {
   };
 
   return (
-    <main className="flex-1 flex flex-col h-full min-h-0 bg-[#E8EEF5] text-slate-900 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 md:pb-6 no-scrollbar w-full">
+    <main className="flex-1 flex flex-col h-full min-h-0 bg-[#E8EEF5] text-slate-900 overflow-y-auto p-4 sm:p-5 lg:p-6 no-scrollbar w-full">
       <div className="max-w-7xl mx-auto w-full h-full flex flex-col min-h-0 space-y-4">
         {/* Header Section (Full Width, No Neumorphism mention) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-300/40">
@@ -350,8 +350,6 @@ export default function SettingsPage({ onNavigate }) {
                       Display Name
                     </label>
                     <input
-                      id="profile-display-name"
-                      name="displayName"
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
@@ -365,8 +363,6 @@ export default function SettingsPage({ onNavigate }) {
                       Account Email
                     </label>
                     <input
-                      id="profile-account-email"
-                      name="accountEmail"
                       type="email"
                       disabled
                       value={user?.email || 'agent@strawcrm.com'}
@@ -381,8 +377,6 @@ export default function SettingsPage({ onNavigate }) {
                     </label>
                     <div className="relative">
                       <input
-                        id="profile-user-role"
-                        name="userRole"
                         type="text"
                         value={userRole}
                         onChange={(e) => handleRoleChange(e.target.value)}
@@ -426,11 +420,10 @@ export default function SettingsPage({ onNavigate }) {
                       <button
                         type="button"
                         onClick={() => handleDefaultViewChange('grid')}
-                        className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                          defaultViewMode === 'grid'
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${defaultViewMode === 'grid'
                             ? 'bg-[#E8EEF5] shadow-neu-btn text-sky-600 border border-white/90 font-black'
                             : 'text-slate-500 hover:text-slate-800'
-                        }`}
+                          }`}
                       >
                         <LayoutGrid className="w-3.5 h-3.5" />
                         <span>Cards (Grid)</span>
@@ -439,11 +432,10 @@ export default function SettingsPage({ onNavigate }) {
                       <button
                         type="button"
                         onClick={() => handleDefaultViewChange('table')}
-                        className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                          defaultViewMode === 'table'
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${defaultViewMode === 'table'
                             ? 'bg-[#E8EEF5] shadow-neu-btn text-sky-600 border border-white/90 font-black'
                             : 'text-slate-500 hover:text-slate-800'
-                        }`}
+                          }`}
                       >
                         <List className="w-3.5 h-3.5" />
                         <span>Table (List)</span>
@@ -502,11 +494,10 @@ export default function SettingsPage({ onNavigate }) {
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-bold text-slate-800">Email Notifications</p>
                         <span
-                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
-                            emailNotifications
+                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase ${emailNotifications
                               ? 'bg-emerald-100 text-emerald-700'
                               : 'bg-slate-200 text-slate-500'
-                          }`}
+                            }`}
                         >
                           {emailNotifications ? 'Active' : 'Muted'}
                         </span>
@@ -541,11 +532,10 @@ export default function SettingsPage({ onNavigate }) {
                       <div className="flex items-center gap-2">
                         <p className="text-xs font-bold text-slate-800">Urgent Audio Chime</p>
                         <span
-                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase ${
-                            soundAlerts
+                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase ${soundAlerts
                               ? 'bg-emerald-100 text-emerald-700'
                               : 'bg-slate-200 text-slate-500'
-                          }`}
+                            }`}
                         >
                           {soundAlerts ? 'Audible' : 'Silent'}
                         </span>
@@ -608,9 +598,8 @@ export default function SettingsPage({ onNavigate }) {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${
-                            agent.color || 'from-blue-600 to-cyan-600'
-                          } text-white font-black text-xs flex items-center justify-center shrink-0 shadow-neu-icon`}
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${agent.color || 'from-blue-600 to-cyan-600'
+                            } text-white font-black text-xs flex items-center justify-center shrink-0 shadow-neu-icon`}
                         >
                           {agent.avatar || 'AS'}
                         </div>
@@ -638,16 +627,14 @@ export default function SettingsPage({ onNavigate }) {
 
                       <div className="flex items-center gap-2.5 shrink-0">
                         <span
-                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/80 ${
-                            agent.status === 'Online' ? 'text-emerald-600' : 'text-slate-400'
-                          }`}
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/80 ${agent.status === 'Online' ? 'text-emerald-600' : 'text-slate-400'
+                            }`}
                         >
                           <span
-                            className={`w-2 h-2 rounded-full ${
-                              agent.status === 'Online'
+                            className={`w-2 h-2 rounded-full ${agent.status === 'Online'
                                 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
                                 : 'bg-slate-400'
-                            }`}
+                              }`}
                           />
                           <span>{agent.status}</span>
                         </span>
@@ -720,22 +707,20 @@ export default function SettingsPage({ onNavigate }) {
                 <button
                   type="button"
                   onClick={() => setAgentFilter('all')}
-                  className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all ${
-                    agentFilter === 'all'
+                  className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all ${agentFilter === 'all'
                       ? 'bg-[#E8EEF5] shadow-neu-btn text-slate-900 border border-white/80'
                       : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                    }`}
                 >
                   All ({agentsData.total})
                 </button>
                 <button
                   type="button"
                   onClick={() => setAgentFilter('online')}
-                  className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 ${
-                    agentFilter === 'online'
+                  className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 ${agentFilter === 'online'
                       ? 'bg-[#E8EEF5] shadow-neu-btn text-emerald-700 border border-white/80'
                       : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                    }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Online ({agentsData.onlineCount})
@@ -743,11 +728,10 @@ export default function SettingsPage({ onNavigate }) {
                 <button
                   type="button"
                   onClick={() => setAgentFilter('offline')}
-                  className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 ${
-                    agentFilter === 'offline'
+                  className={`px-3 py-1 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 ${agentFilter === 'offline'
                       ? 'bg-[#E8EEF5] shadow-neu-btn text-slate-700 border border-white/80'
                       : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                    }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                   Offline ({agentsData.offlineCount})
@@ -758,8 +742,6 @@ export default function SettingsPage({ onNavigate }) {
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
-                  id="agent-search-input"
-                  name="agentSearch"
                   type="text"
                   value={agentSearch}
                   onChange={(e) => setAgentSearch(e.target.value)}
@@ -797,9 +779,8 @@ export default function SettingsPage({ onNavigate }) {
                     <div className="p-2.5 rounded-xl hover:bg-white/50 transition-colors flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div
-                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${
-                            agent.color || 'from-blue-600 to-cyan-600'
-                          } text-white font-black text-xs flex items-center justify-center shrink-0 shadow-neu-icon`}
+                          className={`w-9 h-9 rounded-xl bg-gradient-to-br ${agent.color || 'from-blue-600 to-cyan-600'
+                            } text-white font-black text-xs flex items-center justify-center shrink-0 shadow-neu-icon`}
                         >
                           {agent.avatar || 'AS'}
                         </div>
@@ -827,16 +808,14 @@ export default function SettingsPage({ onNavigate }) {
 
                       <div className="flex items-center gap-2 shrink-0">
                         <span
-                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/80 ${
-                            agent.status === 'Online' ? 'text-emerald-600' : 'text-slate-400'
-                          }`}
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/80 ${agent.status === 'Online' ? 'text-emerald-600' : 'text-slate-400'
+                            }`}
                         >
                           <span
-                            className={`w-2 h-2 rounded-full ${
-                              agent.status === 'Online'
+                            className={`w-2 h-2 rounded-full ${agent.status === 'Online'
                                 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
                                 : 'bg-slate-400'
-                            }`}
+                              }`}
                           />
                           <span>{agent.status}</span>
                         </span>

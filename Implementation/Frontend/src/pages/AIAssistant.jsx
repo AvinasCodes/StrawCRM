@@ -452,13 +452,13 @@ export default function AIAssistant({ onNavigate }) {
   const customerInitial = (selectedTicket?.customer_name || 'C').charAt(0).toUpperCase();
 
   return (
-    <div className="h-full flex-1 min-h-0 flex flex-col p-2.5 sm:p-5 pb-24 md:pb-5 overflow-y-auto lg:overflow-hidden w-full bg-[#E8EEF5] text-slate-800 font-sans select-none">
+    <div className="h-full flex-1 min-h-0 flex flex-col p-2.5 sm:p-5 overflow-y-auto lg:overflow-hidden w-full bg-[#E8EEF5] text-slate-800 font-sans select-none">
       {/* ─────────────────────────────────────────────────────────────────────────
-          1. COMPACT TOP HEADER (Mobile Optimized)
+          1. COMPACT TOP HEADER (Minimal Neumorphic Strip)
          ───────────────────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 pb-2 sm:pb-3 flex items-center justify-between gap-2.5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-sky-600 flex items-center justify-center shrink-0">
+      <header className="shrink-0 pb-3 sm:pb-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-sky-600 flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-sky-600 fill-sky-600/20" />
           </div>
           <div>
@@ -470,14 +470,14 @@ export default function AIAssistant({ onNavigate }) {
                 Copilot
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium hidden sm:block">
+            <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium">
               Analyze tickets, generate responses, and summarize support issues in seconds.
             </p>
           </div>
         </div>
 
         {/* Header Right Controls */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => syncFromBackend()}
@@ -488,8 +488,8 @@ export default function AIAssistant({ onNavigate }) {
           </button>
 
           {/* Quick Ticket Counter */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-[10px] sm:text-[11px] font-bold text-slate-600">
-            <Ticket className="w-3 h-3 text-sky-600" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#E2E9F2] shadow-neu-inset border border-slate-300/40 text-[11px] font-bold text-slate-600">
+            <Ticket className="w-3.5 h-3.5 text-sky-600" />
             <span>{tickets.length} Available</span>
           </div>
         </div>
@@ -536,9 +536,8 @@ export default function AIAssistant({ onNavigate }) {
                     >
                       <span>{dossierCollapsed ? 'Show Details' : 'Hide Details'}</span>
                       <ChevronDown
-                        className={`w-3 h-3 transition-transform duration-200 ${
-                          dossierCollapsed ? '-rotate-90' : 'rotate-0'
-                        }`}
+                        className={`w-3 h-3 transition-transform duration-200 ${dossierCollapsed ? '-rotate-90' : 'rotate-0'
+                          }`}
                       />
                     </button>
                   </div>
@@ -693,11 +692,10 @@ export default function AIAssistant({ onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('response')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      activeTab === 'response'
+                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'response'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
                     <span>Smart Reply</span>
@@ -706,11 +704,10 @@ export default function AIAssistant({ onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('summary')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      activeTab === 'summary'
+                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'summary'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <FileText className="w-3.5 h-3.5" />
                     <span>Summary</span>
@@ -719,11 +716,10 @@ export default function AIAssistant({ onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('priority')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      activeTab === 'priority'
+                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'priority'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <BarChart2 className="w-3.5 h-3.5" />
                     <span>Priority & Sentiment</span>
@@ -732,11 +728,10 @@ export default function AIAssistant({ onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('custom')}
-                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                      activeTab === 'custom'
+                    className={`py-1.5 px-3 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${activeTab === 'custom'
                         ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                         : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                      }`}
                   >
                     <HelpCircle className="w-3.5 h-3.5" />
                     <span>Ask AI</span>
@@ -791,11 +786,10 @@ export default function AIAssistant({ onNavigate }) {
                                 setTone(t.id);
                                 handleRegenerateReply(t.id, instructions);
                               }}
-                              className={`py-1 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                                isActive
+                              className={`py-1 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${isActive
                                   ? 'bg-[#E2E9F2] text-sky-600 font-black shadow-neu-inset border border-sky-300/40'
                                   : 'bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card border border-white/60 text-slate-600 hover:text-slate-900'
-                              }`}
+                                }`}
                             >
                               <IconComp className="w-3 h-3" />
                               <span>{t.label}</span>
@@ -812,8 +806,6 @@ export default function AIAssistant({ onNavigate }) {
                       </label>
                       <div className="flex items-center gap-2">
                         <input
-                          id="ai-instructions-input"
-                          name="aiInstructions"
                           type="text"
                           value={instructions}
                           onChange={(e) => setInstructions(e.target.value)}
@@ -886,11 +878,10 @@ export default function AIAssistant({ onNavigate }) {
                             <button
                               type="button"
                               onClick={() => setIsEditingReply(!isEditingReply)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                                isEditingReply
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl border text-xs font-bold transition-all cursor-pointer ${isEditingReply
                                   ? 'bg-[#E2E9F2] border-sky-400 text-sky-600 shadow-neu-inset'
                                   : 'bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border-white/60 text-slate-700'
-                              }`}
+                                }`}
                             >
                               <Pencil className="w-3 h-3 text-slate-500" />
                               <span>{isEditingReply ? 'Done' : 'Edit'}</span>
@@ -1068,11 +1059,10 @@ export default function AIAssistant({ onNavigate }) {
                           type="button"
                           disabled={applyingPriority || priorityApplied}
                           onClick={handleApplyPriority}
-                          className={`w-full py-2 px-3.5 rounded-xl text-xs font-black transition-all shadow-neu-btn hover:shadow-neu-card border border-white/60 flex items-center justify-center gap-1.5 cursor-pointer ${
-                            priorityApplied
+                          className={`w-full py-2 px-3.5 rounded-xl text-xs font-black transition-all shadow-neu-btn hover:shadow-neu-card border border-white/60 flex items-center justify-center gap-1.5 cursor-pointer ${priorityApplied
                               ? 'bg-emerald-600 text-white'
                               : 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[2px_2px_8px_rgba(14,165,233,0.3)]'
-                          }`}
+                            }`}
                         >
                           {applyingPriority ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
@@ -1107,13 +1097,12 @@ export default function AIAssistant({ onNavigate }) {
                                   Detected Mood:
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black shadow-neu-btn border ${
-                                    isPositive
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black shadow-neu-btn border ${isPositive
                                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                       : isFrustrated
-                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                      : 'bg-blue-50 text-sky-700 border-blue-200'
-                                  }`}
+                                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                        : 'bg-blue-50 text-sky-700 border-blue-200'
+                                    }`}
                                 >
                                   {isPositive ? (
                                     <ThumbsUp className="w-3 h-3 text-emerald-600" />
@@ -1130,8 +1119,8 @@ export default function AIAssistant({ onNavigate }) {
                                 {isFrustrated
                                   ? 'Customer expresses acute frustration or dissatisfaction. Apologetic and swift resolution recommended.'
                                   : isPositive
-                                  ? 'Customer is cooperative and polite. Maintain encouraging and friendly tone.'
-                                  : 'Standard inquiry with neutral tone. Professional tone is suitable.'}
+                                    ? 'Customer is cooperative and polite. Maintain encouraging and friendly tone.'
+                                    : 'Standard inquiry with neutral tone. Professional tone is suitable.'}
                               </p>
 
                               <div className="p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn border border-white/60 flex items-center justify-between text-[11px] font-bold">
@@ -1167,8 +1156,6 @@ export default function AIAssistant({ onNavigate }) {
                       <div className="space-y-2">
                         <div className="relative">
                           <input
-                            id="ai-custom-prompt-input"
-                            name="customPrompt"
                             type="text"
                             value={customPrompt}
                             onChange={(e) => setCustomPrompt(e.target.value)}
@@ -1305,8 +1292,6 @@ export default function AIAssistant({ onNavigate }) {
                       {emailCustomerName || 'Valued Customer'}
                     </span>
                     <input
-                      id="email-customer-recipient-input"
-                      name="emailCustomerRecipient"
                       type="email"
                       value={emailCustomerRecipient}
                       onChange={(e) => setEmailCustomerRecipient(e.target.value)}
@@ -1327,8 +1312,6 @@ export default function AIAssistant({ onNavigate }) {
                   Subject Line
                 </label>
                 <input
-                  id="email-modal-subject-input"
-                  name="emailModalSubject"
                   type="text"
                   value={emailModalSubject}
                   onChange={(e) => setEmailModalSubject(e.target.value)}
@@ -1344,8 +1327,6 @@ export default function AIAssistant({ onNavigate }) {
                   Response Preview
                 </label>
                 <textarea
-                  id="email-modal-message-body"
-                  name="emailModalMessage"
                   rows={6}
                   value={emailModalMessage}
                   onChange={(e) => setEmailModalMessage(e.target.value)}

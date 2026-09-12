@@ -91,7 +91,7 @@ export default function Customers({ onNavigate }) {
           return Array.from(map.values());
         });
       }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function Customers({ onNavigate }) {
           setAllTickets(liveTickets);
         }
       },
-      () => {}
+      () => { }
     );
 
     return () => {
@@ -272,10 +272,10 @@ export default function Customers({ onNavigate }) {
             onClick={handleRefresh}
             aria-label="Refresh customers directory"
             title="Sync latest customers from backend"
-            className="p-2 sm:p-2.5 rounded-xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
+            className="p-2.5 rounded-2xl bg-[#E8EEF5] shadow-neu-btn hover:shadow-neu-card active:shadow-neu-btn-pressed border border-white/80 text-slate-600 hover:text-slate-900 transition-all cursor-pointer"
           >
             <RotateCcw
-              className={`w-3.5 h-3.5 ${refreshing || loading ? 'animate-spin text-sky-600' : ''}`}
+              className={`w-4 h-4 ${refreshing || loading ? 'animate-spin text-sky-600' : ''}`}
             />
           </button>
 
@@ -283,9 +283,9 @@ export default function Customers({ onNavigate }) {
           <button
             type="button"
             onClick={() => onNavigate && onNavigate('/tickets/create')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-black shadow-[3px_3px_10px_rgba(14,165,233,0.35),-2px_-2px_6px_rgba(255,255,255,0.9)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-black shadow-[3px_3px_12px_rgba(14,165,233,0.35),-2px_-2px_8px_rgba(255,255,255,0.9)] hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>New Ticket</span>
           </button>
         </div>
@@ -294,7 +294,7 @@ export default function Customers({ onNavigate }) {
       {/* ─────────────────────────────────────────────────────────────────────────
           2. CONTEXTUAL METRICS OVERVIEW (KPI Mini-Cards)
          ───────────────────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 my-2.5 sm:my-3.5">
+      <div className="shrink-0 grid grid-cols-2 lg:grid-cols-4 gap-3.5 my-3.5">
         {/* Total Customers */}
         <div className="bg-[#E8EEF5] rounded-2xl shadow-neu-card border border-white/80 p-4 flex items-center gap-3.5 hover:shadow-neu-card-hover transition-all">
           <div className="w-11 h-11 rounded-2xl bg-[#E2E9F2] shadow-neu-inset border border-sky-100/50 text-sky-600 flex items-center justify-center shrink-0">
@@ -381,33 +381,30 @@ export default function Customers({ onNavigate }) {
           <button
             type="button"
             onClick={() => setActiveTab('all')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer text-xs shrink-0 ${
-              activeTab === 'all'
+            className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer text-xs shrink-0 ${activeTab === 'all'
                 ? 'bg-[#E8EEF5] text-sky-600 font-black shadow-neu-btn border border-white/80'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             All Accounts ({stats.total})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('active')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer text-xs shrink-0 ${
-              activeTab === 'active'
+            className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer text-xs shrink-0 ${activeTab === 'active'
                 ? 'bg-[#E8EEF5] text-rose-600 font-black shadow-neu-btn border border-white/80'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Open Issues ({stats.withOpen})
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('repeat')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer text-xs shrink-0 ${
-              activeTab === 'repeat'
+            className={`px-3.5 py-1.5 rounded-xl transition-all cursor-pointer text-xs shrink-0 ${activeTab === 'repeat'
                 ? 'bg-[#E8EEF5] text-purple-600 font-black shadow-neu-btn border border-white/80'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Repeat ({stats.repeat})
           </button>
@@ -576,11 +573,10 @@ export default function Customers({ onNavigate }) {
                       <td className="px-4 align-middle whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-[#E8EEF5] shadow-neu-btn border border-white/80 ${
-                              ticketCount > 1
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-[#E8EEF5] shadow-neu-btn border border-white/80 ${ticketCount > 1
                                 ? 'text-purple-700'
                                 : 'text-sky-600'
-                            }`}
+                              }`}
                           >
                             <Ticket className="w-3.5 h-3.5" />
                             <span>
@@ -608,10 +604,10 @@ export default function Customers({ onNavigate }) {
                       <td className="px-4 align-middle text-slate-600 text-xs whitespace-nowrap font-medium">
                         {c.latest_ticket_date
                           ? new Date(c.latest_ticket_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                            })
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
                           : 'Recently'}
                       </td>
 

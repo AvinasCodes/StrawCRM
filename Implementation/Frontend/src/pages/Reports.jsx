@@ -220,9 +220,8 @@ export default function Reports({ onNavigate }) {
 
   return (
     <main
-      className={`flex-1 flex flex-col h-full min-h-0 p-3 sm:p-6 pb-24 md:pb-8 ${
-        isSidebarPinned ? 'xl:p-7' : 'lg:p-8'
-      } overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full bg-[#E8EEF5] text-slate-800 font-sans selection:bg-brand-electric/20 selection:text-brand-electric`}
+      className={`flex-1 flex flex-col h-full min-h-0 p-4 sm:p-6 ${isSidebarPinned ? 'xl:p-7' : 'lg:p-8'
+        } overflow-y-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full bg-[#E8EEF5] text-slate-800 font-sans selection:bg-brand-electric/20 selection:text-brand-electric`}
     >
       {/* ─────────────────────────────────────────────────────────────────────────
           HEADER SECTION: Neumorphic Command Bar
@@ -254,11 +253,10 @@ export default function Reports({ onNavigate }) {
                   key={opt.value}
                   type="button"
                   onClick={() => setDateRange(opt.value)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    isActive
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer ${isActive
                       ? 'bg-[#E8EEF5] text-brand-electric shadow-neu-btn border border-white/80'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   <span className={isSidebarPinned ? 'hidden 2xl:inline' : 'hidden md:inline'}>
                     {opt.label}
@@ -281,9 +279,8 @@ export default function Reports({ onNavigate }) {
               <Calendar className="w-3.5 h-3.5 text-brand-electric" />
               <span>{currentRangeObj.label}</span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-500 transition-transform ${
-                  rangeDropdownOpen ? 'rotate-180' : ''
-                }`}
+                className={`w-3.5 h-3.5 text-slate-500 transition-transform ${rangeDropdownOpen ? 'rotate-180' : ''
+                  }`}
               />
             </button>
 
@@ -297,11 +294,10 @@ export default function Reports({ onNavigate }) {
                       setDateRange(opt.value);
                       setRangeDropdownOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between font-bold ${
-                      dateRange === opt.value
+                    className={`w-full text-left px-3 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-between font-bold ${dateRange === opt.value
                         ? 'bg-[#E2E9F2] shadow-neu-inset text-brand-electric'
                         : 'text-slate-700 hover:bg-white/40'
-                    }`}
+                      }`}
                   >
                     <span>{opt.label}</span>
                     {dateRange === opt.value && (
@@ -330,9 +326,8 @@ export default function Reports({ onNavigate }) {
       ───────────────────────────────────────────────────────────────────────── */}
       <section
         aria-label="Key Performance Indicators"
-        className={`grid grid-cols-1 sm:grid-cols-2 ${
-          isSidebarPinned ? 'xl:grid-cols-4' : 'lg:grid-cols-4'
-        } gap-3 sm:gap-3.5 mb-3.5`}
+        className={`grid grid-cols-1 sm:grid-cols-2 ${isSidebarPinned ? 'xl:grid-cols-4' : 'lg:grid-cols-4'
+          } gap-3 sm:gap-3.5 mb-3.5`}
       >
         {/* Card 1: Total Tickets */}
         <div className="group rounded-2xl bg-[#E8EEF5] p-3.5 sm:p-4 shadow-neu-card hover:shadow-neu-card-hover border border-white/70 transition-all duration-300 transform hover:-translate-y-0.5">
@@ -479,18 +474,16 @@ export default function Reports({ onNavigate }) {
           ROW 2: ADVANCED NEUMORPHIC VISUALIZATION ENGINES
       ───────────────────────────────────────────────────────────────────────── */}
       <div
-        className={`grid grid-cols-1 ${
-          isSidebarPinned ? 'xl:grid-cols-12' : 'lg:grid-cols-12'
-        } gap-3.5 sm:gap-4 mb-3.5 items-stretch`}
+        className={`grid grid-cols-1 ${isSidebarPinned ? 'xl:grid-cols-12' : 'lg:grid-cols-12'
+          } gap-3.5 sm:gap-4 mb-3.5 items-stretch`}
       >
         {/* ─────────────────────────────────────────────────────────────────────
             SECTION 1: STATUS DISTRIBUTION (Concentric Neumorphic Donut)
         ───────────────────────────────────────────────────────────────────── */}
         <section
           aria-label="Status Distribution Breakdown"
-          className={`${
-            isSidebarPinned ? 'xl:col-span-5' : 'lg:col-span-5'
-          } rounded-2xl bg-[#E8EEF5] p-4 sm:p-4.5 shadow-neu-card border border-white/70 flex flex-col justify-between`}
+          className={`${isSidebarPinned ? 'xl:col-span-5' : 'lg:col-span-5'
+            } rounded-2xl bg-[#E8EEF5] p-4 sm:p-4.5 shadow-neu-card border border-white/70 flex flex-col justify-between`}
         >
           <div>
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-300/40">
@@ -512,9 +505,8 @@ export default function Reports({ onNavigate }) {
           </div>
 
           <div
-            className={`flex flex-col ${
-              isSidebarPinned ? '2xl:flex-row' : 'xl:flex-row'
-            } items-center justify-around gap-4 py-3`}
+            className={`flex flex-col ${isSidebarPinned ? '2xl:flex-row' : 'xl:flex-row'
+              } items-center justify-around gap-4 py-3`}
           >
             {/* Sculpted Concentric Sunken Ring Housing SVG Donut */}
             <div className="relative w-36 h-36 sm:w-40 sm:h-40 shrink-0 flex items-center justify-center p-2 rounded-full bg-[#E2E9F2] shadow-neu-inset border border-white/50">
@@ -620,9 +612,8 @@ export default function Reports({ onNavigate }) {
         ───────────────────────────────────────────────────────────────────── */}
         <section
           aria-label="Tickets Over Time Dynamic Area Chart"
-          className={`${
-            isSidebarPinned ? 'xl:col-span-7' : 'lg:col-span-7'
-          } rounded-2xl bg-[#E8EEF5] p-4 sm:p-4.5 shadow-neu-card border border-white/70 flex flex-col justify-between`}
+          className={`${isSidebarPinned ? 'xl:col-span-7' : 'lg:col-span-7'
+            } rounded-2xl bg-[#E8EEF5] p-4 sm:p-4.5 shadow-neu-card border border-white/70 flex flex-col justify-between`}
         >
           <div>
             <div className="flex items-center justify-between pb-2.5 border-b border-slate-300/40">
@@ -793,9 +784,8 @@ export default function Reports({ onNavigate }) {
       ───────────────────────────────────────────────────────────────────────── */}
       <section
         aria-label="SLA and Operational Benchmarks"
-        className={`grid grid-cols-1 ${
-          isSidebarPinned ? 'xl:grid-cols-3' : 'md:grid-cols-3'
-        } gap-3 sm:gap-3.5`}
+        className={`grid grid-cols-1 ${isSidebarPinned ? 'xl:grid-cols-3' : 'md:grid-cols-3'
+          } gap-3 sm:gap-3.5`}
       >
         {/* SLA Health Indicator */}
         <div className="rounded-2xl bg-[#E8EEF5] p-3.5 sm:p-4.5 shadow-neu-card border border-white/70 flex flex-col justify-between">
