@@ -17,12 +17,15 @@ import {
   Tag,
   LayoutGrid,
   List,
+  GripVertical,
+  Trash2,
 } from 'lucide-react';
 import TicketStatusBadge from '../components/tickets/TicketStatusBadge';
 import TicketActionMenu from '../components/tickets/TicketActionMenu';
 import TicketDetailModal from '../components/tickets/TicketDetailModal';
 import CreateTicketModal from '../components/tickets/CreateTicketModal';
 import MinimalDeleteButton from '../components/ui/MinimalDeleteButton';
+import DragDeleteDustbin from '../components/tickets/DragDeleteDustbin';
 import {
   subscribeTickets,
   updateTicket,
@@ -100,6 +103,46 @@ export default function Tickets({ onNavigate }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Drag-to-Delete interactive state
+  const [draggedTicket, setDraggedTicket] = useState(null);
+  const [isDraggingCard, setIsDraggingCard] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const handleCardDragStart = (e, ticket) => {
+    setDraggedTicket(ticket);
+    setIsDraggingCard(true);
+    try {
+      e.dataTransfer.setData('text/plain', ticket.ticket_id);
+      e.dataTransfer.effectAllowed = 'move';
+    } catch {}
+  };
+
+  const handleCardDragEnd = () => {
+    setIsDraggingCard(false);
+    setDraggedTicket(null);
+  };
+
+  const handleDropDelete = async (ticket) => {
+    setIsDraggingCard(false);
+    setDraggedTicket(null);
+    if (!ticket || !ticket.ticket_id) return;
+
+    const id = ticket.ticket_id;
+    try {
+      await deleteTicket(id);
+      if (selectedTicketId === id) setSelectedTicketId(null);
+      setToastMessage({
+        text: `Ticket #${id} moved to trash`,
+        ticket,
+      });
+      setTimeout(() => {
+        setToastMessage((curr) => (curr?.ticket?.ticket_id === id ? null : curr));
+      }, 5000);
+    } catch (err) {
+      alert(err.message || 'Failed to delete ticket');
+    }
+  };
 
   // Active agents directory for agent filters
   const activeAgents = useMemo(() => getActiveAgents(user), [user]);
@@ -787,9 +830,24 @@ export default function Tickets({ onNavigate }) {
                 return (
                   <div
                     key={t.ticket_id}
-                    onClick={() => setSelectedTicketId(t.ticket_id)}
-                    className="rounded-[22px] bg-[#EEF4FA] border border-white/60 shadow-[4px_6px_16px_rgba(165,182,206,0.32),-1px_-1px_3px_rgba(255,255,255,0.18)] hover:shadow-[6px_8px_20px_rgba(155,174,200,0.42),-1px_-1px_4px_rgba(255,255,255,0.25)] hover:-translate-y-0.5 transition-all duration-200 relative flex flex-col justify-between p-3.5 sm:p-4 group cursor-pointer font-jakarta select-none"
+                    draggable
+                    onDragStart={(e) => handleCardDragStart(e, t)}
+                    onDragEnd={handleCardDragEnd}
+                    onClick={() => {
+                      if (!isDraggingCard) setSelectedTicketId(t.ticket_id);
+                    }}
+                    className={`rounded-[22px] bg-[#EEF4FA] border transition-all duration-200 relative flex flex-col justify-between p-3.5 sm:p-4 group cursor-pointer font-jakarta select-none ${
+                      draggedTicket?.ticket_id === t.ticket_id
+                        ? 'border-rose-400/60 shadow-[0_12px_30px_rgba(225,29,72,0.25)] scale-[1.04] rotate-[2deg] opacity-80 ring-2 ring-rose-300/50 cursor-grabbing z-30'
+                        : 'border-white/60 shadow-[4px_6px_16px_rgba(165,182,206,0.32),-1px_-1px_3px_rgba(255,255,255,0.18)] hover:shadow-[6px_8px_20px_rgba(155,174,200,0.42),-1px_-1px_4px_rgba(255,255,255,0.25)] hover:-translate-y-0.5'
+                    }`}
                   >
+                    {/* Drag Grip Handle — visible on hover */}
+                    <div className="absolute top-1.5 right-1.5 p-1 rounded-lg text-slate-400 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-rose-500 hover:bg-rose-50 transition-all cursor-grab active:cursor-grabbing z-20"
+                      title="Drag to trash to delete"
+                    >
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
                     {/* ─────────────────────────────────────────────────────────
                         1. TOP ROW: Ticket ID, Priority & Status Stamp + Action Menu
                        ───────────────────────────────────────────────────────── */}
@@ -1158,6 +1216,38 @@ export default function Tickets({ onNavigate }) {
           handleDeleteSingle(ticket);
         }}
       />
+
+      {/* ─────────────────────────────────────────────────────────────────────────
+          8. DRAG-TO-DELETE DUSTBIN (Portal to body)
+         ───────────────────────────────────────────────────────────────────────── */}
+      {createPortal(
+        <DragDeleteDustbin
+          isDragging={isDraggingCard}
+          draggedTicket={draggedTicket}
+          onDropDelete={handleDropDelete}
+        />,
+        document.body
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────────────
+          9. UNDO DELETE TOAST
+         ───────────────────────────────────────────────────────────────────────── */}
+      {toastMessage && createPortal(
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-900 text-white shadow-[0_12px_40px_rgba(0,0,0,0.4)] border border-white/10 backdrop-blur-lg">
+            <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+            <span className="text-xs font-bold">{toastMessage.text}</span>
+            <button
+              type="button"
+              onClick={() => setToastMessage(null)}
+              className="ml-2 px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-black text-white transition-all cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </main>
   );
 }
