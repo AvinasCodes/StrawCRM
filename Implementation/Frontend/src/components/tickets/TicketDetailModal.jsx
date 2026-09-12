@@ -462,7 +462,7 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl sm:max-w-2xl max-h-[90vh] rounded-2xl bg-[#EEF4FA] border border-slate-300/50 shadow-[0_24px_50px_rgba(15,23,42,0.35),0_8px_20px_rgba(145,168,198,0.25)] flex flex-col relative font-sans select-none overflow-hidden"
+        className="w-full max-w-[538px] sm:max-w-[634px] max-h-[90vh] rounded-2xl bg-[#EEF4FA] border border-slate-300/50 shadow-[0_24px_50px_rgba(15,23,42,0.35),0_8px_20px_rgba(145,168,198,0.25)] flex flex-col relative font-sans select-none overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
