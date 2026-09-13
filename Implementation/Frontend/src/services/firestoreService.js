@@ -360,16 +360,23 @@ export function subscribeTickets(filters = {}, onUpdate, onError) {
           const rawTickets = [];
           snapshot.forEach((docSnap) => {
             const data = docSnap.data();
+            const fallbackSubject = (data.subject && String(data.subject).trim())
+              || (data.title && String(data.title).trim())
+              || (data.description && String(data.description).trim() ? (String(data.description).trim().length > 60 ? String(data.description).trim().slice(0, 60) + '...' : String(data.description).trim()) : '')
+              || (data.category && String(data.category).trim())
+              || 'Support Ticket';
+
             rawTickets.push({
               ...data,
               id: docSnap.id,
               ticket_id: data.ticket_id || docSnap.id,
               customer_id: data.customer_id || 'CUST-001',
               raised_by_user_id: data.raised_by_user_id || 'usr_agent_01',
-              customer_name: data.customer_name || 'Customer',
+              customer_name: (data.customer_name && String(data.customer_name).trim()) || 'Customer',
               customer_email: data.customer_email || '',
-              subject: data.subject || '',
+              subject: fallbackSubject,
               description: data.description || '',
+              category: data.category || 'General Inquiry',
               status: data.status || 'Open',
               priority: data.priority || 'Normal',
               assigned_to_name: data.assigned_to_name !== undefined ? data.assigned_to_name : '',
@@ -388,24 +395,26 @@ export function subscribeTickets(filters = {}, onUpdate, onError) {
 
           rawTickets.forEach((rt) => {
             const key = (rt.ticket_id || '').toUpperCase();
-            // Don't re-add tickets that were deleted locally
-            if (_deletedIds.has(key.replace(/^#/, ''))) return;
+            // Since this document exists live in Firestore, unblock any stale local deletion tombstone
+            _deletedIds.delete(key.replace(/^#/, ''));
+            _deletedIds.delete(key);
+
             const existing = mergedMap.get(key);
             if (!existing) {
-              if (rt.subject && rt.subject.trim()) {
-                mergedMap.set(key, rt);
-              }
+              mergedMap.set(key, rt);
             } else {
               const existingTime = new Date(existing.updated_at || existing.created_at || 0).getTime();
               const rtTime = new Date(rt.updated_at || rt.created_at || 0).getTime();
-              const useRt = rtTime > existingTime;
+              const useRt = rtTime >= existingTime;
 
               mergedMap.set(key, {
                 ...existing,
+                ...rt,
                 customer_name: (rt.customer_name && rt.customer_name !== 'Customer') ? rt.customer_name : existing.customer_name,
                 customer_email: rt.customer_email || existing.customer_email,
-                subject: (rt.subject && rt.subject.trim()) ? rt.subject : existing.subject,
-                description: (rt.description && rt.description.trim()) ? rt.description : existing.description,
+                subject: (rt.subject && String(rt.subject).trim()) ? rt.subject : (existing.subject || rt.subject),
+                description: (rt.description && String(rt.description).trim()) ? rt.description : existing.description,
+                category: rt.category || existing.category || 'General Inquiry',
                 customer_id: rt.customer_id || existing.customer_id,
                 raised_by_user_id: (rt.raised_by_user_id && rt.raised_by_user_id !== 'usr_agent_01') ? rt.raised_by_user_id : existing.raised_by_user_id,
                 raised_by_name: rt.raised_by_name || existing.raised_by_name || existing.customer_name,
@@ -421,11 +430,8 @@ export function subscribeTickets(filters = {}, onUpdate, onError) {
               });
             }
           });
-          // Filter out locally-deleted tickets from Firestore snapshot merge result
-          _localTickets = Array.from(mergedMap.values()).filter(
-            (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
-          );
 
+          _localTickets = Array.from(mergedMap.values());
           _localTickets.sort((a, b) => {
             const tA = new Date(a.created_at).getTime() || 0;
             const tB = new Date(b.created_at).getTime() || 0;
@@ -662,21 +668,30 @@ export function subscribeTicketDetail(ticketId, onUpdate, onError) {
         ? ticketData.status
         : (base?.status || ticketData?.status || 'Open');
 
+      const detailSubject = (ticketData?.subject && String(ticketData.subject).trim())
+        || (base?.subject && String(base.subject).trim())
+        || (ticketData?.title && String(ticketData.title).trim())
+        || (ticketData?.description ? (String(ticketData.description).trim().length > 60 ? String(ticketData.description).trim().slice(0, 60) + '...' : String(ticketData.description).trim()) : '')
+        || ticketData?.category
+        || 'Support Ticket';
+
       const merged = healTicket({
         ...base,
-        ticket_id: base.ticket_id || cleanId,
-        customer_id: base.customer_id || '',
-        customer_name: base.customer_name || '',
-        customer_email: base.customer_email || '',
-        subject: base.subject || '',
-        description: base.description || '',
-        raised_by_name: base.raised_by_name || base.customer_name || '',
-        raised_by_user_id: base.raised_by_user_id || '',
+        ...ticketData,
+        ticket_id: ticketData?.ticket_id || base.ticket_id || cleanId,
+        customer_id: ticketData?.customer_id || base.customer_id || '',
+        customer_name: (ticketData?.customer_name && String(ticketData.customer_name).trim()) || base.customer_name || 'Customer',
+        customer_email: ticketData?.customer_email || base.customer_email || '',
+        subject: detailSubject,
+        description: ticketData?.description !== undefined ? ticketData.description : (base.description || ''),
+        category: ticketData?.category || base.category || 'General Inquiry',
+        raised_by_name: ticketData?.raised_by_name || base.raised_by_name || base.customer_name || 'Customer',
+        raised_by_user_id: ticketData?.raised_by_user_id || base.raised_by_user_id || '',
         assigned_to_name: ticketData?.assigned_to_name !== undefined ? ticketData.assigned_to_name : (base.assigned_to_name || ''),
         assigned_to_email: ticketData?.assigned_to_email !== undefined ? ticketData.assigned_to_email : (base.assigned_to_email || ''),
         assigned_to_id: ticketData?.assigned_to_id !== undefined ? ticketData.assigned_to_id : (base.assigned_to_id || ''),
         priority: ticketData?.priority || base.priority || 'Normal',
-        created_at: base.created_at || new Date().toISOString(),
+        created_at: ticketData?.created_at || base.created_at || new Date().toISOString(),
         updated_at: ticketData?.updated_at || base.updated_at || new Date().toISOString(),
         status: statusToUse,
         notes: finalNotes,
