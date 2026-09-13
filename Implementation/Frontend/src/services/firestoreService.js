@@ -25,6 +25,36 @@ const NOTES_SUBCOLLECTION = 'notes';
 const CUSTOMERS_COLLECTION = 'customers';
 import { API_BASE_URL } from './api';
 
+export const DEFAULT_TICKET_CATEGORIES = [
+  'General Inquiry',
+  'Technical Support',
+  'Billing & Payments',
+  'Account & Access',
+  'Feature Request',
+  'Operations',
+  'Bug Report',
+];
+
+export function getCustomCategories() {
+  try {
+    const raw = localStorage.getItem('strawcrm_custom_categories');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomCategory(newCat) {
+  if (!newCat || !newCat.trim()) return;
+  const trimmed = newCat.trim();
+  try {
+    const current = getCustomCategories();
+    if (!current.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      localStorage.setItem('strawcrm_custom_categories', JSON.stringify([...current, trimmed]));
+    }
+  } catch {}
+}
+
 
 async function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };

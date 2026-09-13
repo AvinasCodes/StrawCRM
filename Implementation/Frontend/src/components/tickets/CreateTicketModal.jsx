@@ -9,7 +9,12 @@ import {
   formatFileSize,
   validateAttachment,
 } from '../../services/storageService';
-import { subscribeTickets } from '../../services/firestoreService';
+import {
+  subscribeTickets,
+  DEFAULT_TICKET_CATEGORIES,
+  getCustomCategories,
+  saveCustomCategory,
+} from '../../services/firestoreService';
 import { getActiveAgents } from '../../services/teamAgents';
 import { dispatchAssignmentNotification } from '../../services/notificationService';
 
@@ -38,33 +43,40 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
   const defaultAgent = useMemo(() => {
     return activeAgents.find((a) => a.isCurrentUser) || activeAgents[0] || null;
   }, [activeAgents]);
+
   const [assignedAgentId, setAssignedAgentId] = useState('');
+  useEffect(() => {
+    if (defaultAgent && !assignedAgentId) {
+      setAssignedAgentId(defaultAgent.id);
+    }
+  }, [defaultAgent, assignedAgentId]);
 
   const assignedAgent = useMemo(() => {
-    return activeAgents.find((a) => a.id === assignedAgentId) || defaultAgent || null;
+    return activeAgents.find((a) => a.id === assignedAgentId) || defaultAgent;
   }, [activeAgents, assignedAgentId, defaultAgent]);
 
-  // Dynamic Existing Categories fetched ONLY from live tickets (no dummy categories)
-  const [existingCategories, setExistingCategories] = useState([]);
+  // Dynamic Existing Categories fetched from live tickets + defaults + user-created custom categories
+  const [existingCategories, setExistingCategories] = useState(() => {
+    const custom = getCustomCategories();
+    return Array.from(new Set([...DEFAULT_TICKET_CATEGORIES, ...custom])).sort();
+  });
   const [categorySuggestions, setCategorySuggestions] = useState([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const categoryDropdownRef = useRef(null);
 
-  // Subscribe to live tickets to dynamically extract all existing categories from real database
+  // Subscribe to live tickets to dynamically extract all categories and merge with defaults
   useEffect(() => {
     const unsubscribeTickets = subscribeTickets(
       {},
       (liveTickets) => {
-        if (Array.isArray(liveTickets) && liveTickets.length > 0) {
-          const liveCats = Array.from(
-            new Set(
-              liveTickets
-                .map((t) => (t.category || '').trim())
-                .filter(Boolean)
-            )
-          ).sort();
-          setExistingCategories(liveCats);
-        }
+        const custom = getCustomCategories();
+        const liveCats = (Array.isArray(liveTickets) ? liveTickets : [])
+          .map((t) => (t.category || '').trim())
+          .filter(Boolean);
+        const combined = Array.from(
+          new Set([...DEFAULT_TICKET_CATEGORIES, ...custom, ...liveCats])
+        ).filter(Boolean).sort();
+        setExistingCategories(combined);
       },
       () => { }
     );
@@ -120,7 +132,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
     setCategory(val);
     if (!val.trim()) {
       setCategorySuggestions(existingCategories);
-      setShowCategorySuggestions(existingCategories.length > 0);
+      setShowCategorySuggestions(true);
       return;
     }
     const q = val.toLowerCase().trim();
@@ -128,7 +140,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       cat.toLowerCase().includes(q)
     );
     setCategorySuggestions(matches);
-    setShowCategorySuggestions(matches.length > 0);
+    setShowCategorySuggestions(true);
   };
 
   const handleCategoryFocus = () => {
@@ -136,8 +148,20 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
     const matches = q
       ? existingCategories.filter((cat) => cat.toLowerCase().includes(q))
       : existingCategories;
-    setCategorySuggestions(matches);
-    setShowCategorySuggestions(matches.length > 0);
+    setCategorySuggestions(matches.length > 0 ? matches : existingCategories);
+    setShowCategorySuggestions(true);
+  };
+
+  // Select an existing category or save a brand new one
+  const selectOrCreateCategory = (catName) => {
+    const trimmed = (catName || '').trim();
+    if (!trimmed) return;
+    saveCustomCategory(trimmed);
+    if (!existingCategories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      setExistingCategories((prev) => [...prev, trimmed].sort());
+    }
+    setCategory(trimmed);
+    setShowCategorySuggestions(false);
   };
 
   const handleDescriptionPaste = (e) => {
@@ -430,11 +454,11 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
                 <label htmlFor="modal-ticket-category" className="block text-[11px] font-bold text-slate-700">
                   Category
                 </label>
-                <span className="text-[9px] text-slate-500 font-semibold">Type to recommend</span>
+                <span className="text-[9px] text-slate-500 font-semibold">Choose or type new</span>
               </div>
 
               <div className="relative" ref={categoryDropdownRef}>
-                <div className="relative">
+                <div className="relative flex items-center">
                   <input
                     id="modal-ticket-category"
                     type="text"
@@ -443,62 +467,84 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
                     onFocus={handleCategoryFocus}
                     placeholder="Select or type category..."
                     autoComplete="off"
-                    className="w-full px-3 py-1.5 bg-[#E2E9F2] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.08)] border border-slate-300/60 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/30 pr-7 transition-all font-medium"
+                    className="w-full px-3 py-1.5 bg-[#E2E9F2] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.08)] border border-slate-300/60 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/30 pr-14 transition-all font-medium"
                   />
-                  {category && (
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 z-20">
+                    {category && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategory('');
+                          setCategorySuggestions(existingCategories);
+                          setShowCategorySuggestions(true);
+                        }}
+                        className="text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer transition-colors"
+                        title="Clear category"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
-                        setCategory('');
-                        setCategorySuggestions(existingCategories);
-                        setShowCategorySuggestions(true);
+                        if (!showCategorySuggestions) {
+                          setCategorySuggestions(existingCategories);
+                        }
+                        setShowCategorySuggestions(!showCategorySuggestions);
                       }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer"
-                      title="Clear category"
+                      className="text-slate-400 hover:text-slate-700 p-0.5 rounded cursor-pointer transition-colors"
+                      title="Toggle categories"
                     >
-                      <X className="w-3 h-3" />
+                      <ChevronDown className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  </div>
                 </div>
 
                 {/* Autocomplete Recommendation Dropdown */}
                 {showCategorySuggestions && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#E8EEF5] border border-slate-300/70 rounded-xl shadow-xl z-30 py-1 max-h-40 overflow-y-auto divide-y divide-slate-300/40 animate-in fade-in duration-100 no-scrollbar">
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#E8EEF5] border border-slate-300/70 rounded-xl shadow-xl z-30 py-1 max-h-48 overflow-y-auto divide-y divide-slate-300/40 animate-in fade-in duration-100 no-scrollbar">
+                    {/* Create New Category Action */}
+                    {category.trim() && !existingCategories.some((c) => c.toLowerCase() === category.trim().toLowerCase()) && (
+                      <div className="p-1 bg-sky-50/70">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectOrCreateCategory(category);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-100 flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                          <span>Create &quot;<strong>{category.trim()}</strong>&quot; as new category</span>
+                        </button>
+                      </div>
+                    )}
+
                     <div className="px-3 py-0.5 text-[8px] font-black text-slate-500 uppercase tracking-wider flex items-center justify-between bg-[#E2E9F2]/70">
-                      <span>Existing Categories</span>
-                      <span>{categorySuggestions.length} found</span>
+                      <span>Available Categories</span>
+                      <span>{categorySuggestions.length}</span>
                     </div>
-                    {categorySuggestions.length > 0 ? (
-                      categorySuggestions.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setCategory(cat);
-                            setShowCategorySuggestions(false);
-                          }}
-                          className="w-full text-left px-3 py-1.5 text-xs text-slate-800 hover:bg-white/80 hover:text-sky-600 flex items-center justify-between transition-colors cursor-pointer group"
-                        >
-                          <span className="font-semibold group-hover:font-bold">{cat}</span>
-                          {category.toLowerCase() === cat.toLowerCase() && (
-                            <Check className="w-3 h-3 text-sky-600" />
-                          )}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-xs text-slate-600">
-                        <p>No matching existing category.</p>
-                        <button
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            setShowCategorySuggestions(false);
-                          }}
-                          className="mt-1 text-xs text-sky-600 font-bold hover:underline cursor-pointer"
-                        >
-                          Use &quot;{category}&quot; as new category
-                        </button>
+
+                    {categorySuggestions.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectOrCreateCategory(cat);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-slate-800 hover:bg-white/80 hover:text-sky-600 flex items-center justify-between transition-colors cursor-pointer group"
+                      >
+                        <span className="font-semibold group-hover:font-bold">{cat}</span>
+                        {category.toLowerCase() === cat.toLowerCase() && (
+                          <Check className="w-3 h-3 text-sky-600" />
+                        )}
+                      </button>
+                    ))}
+
+                    {categorySuggestions.length === 0 && !category.trim() && (
+                      <div className="px-3 py-2 text-xs text-slate-500 text-center">
+                        Type above to create a new category!
                       </div>
                     )}
                   </div>

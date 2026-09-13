@@ -16,6 +16,7 @@ import {
   ChevronDown,
   UserCheck,
   X,
+  Plus,
   Send,
   Clock,
   ShieldCheck,
@@ -23,7 +24,14 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import { createTicket, subscribeCustomers, subscribeTickets } from '../services/firestoreService';
+import {
+  createTicket,
+  subscribeCustomers,
+  subscribeTickets,
+  DEFAULT_TICKET_CATEGORIES,
+  getCustomCategories,
+  saveCustomCategory,
+} from '../services/firestoreService';
 import { useAuth } from '../context/useAuth';
 import {
   uploadTicketAttachment,
@@ -84,27 +92,28 @@ export default function CreateTicket({ onNavigate }) {
     return activeAgents.find((a) => a.id === assignedAgentId) || null;
   }, [activeAgents, assignedAgentId]);
 
-  // Dynamic Existing Categories fetched ONLY from live tickets (no dummy categories)
-  const [existingCategories, setExistingCategories] = useState([]);
+  // Dynamic Existing Categories fetched from live tickets + defaults + user-created custom categories
+  const [existingCategories, setExistingCategories] = useState(() => {
+    const custom = getCustomCategories();
+    return Array.from(new Set([...DEFAULT_TICKET_CATEGORIES, ...custom])).sort();
+  });
   const [categorySuggestions, setCategorySuggestions] = useState([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const categoryDropdownRef = useRef(null);
 
-  // Subscribe to live tickets to dynamically extract all existing categories from real database
+  // Subscribe to live tickets to merge all real categories + custom saved ones
   useEffect(() => {
     const unsubscribeTickets = subscribeTickets(
       {},
       (liveTickets) => {
-        if (Array.isArray(liveTickets) && liveTickets.length > 0) {
-          const liveCats = Array.from(
-            new Set(
-              liveTickets
-                .map((t) => (t.category || '').trim())
-                .filter(Boolean)
-            )
-          ).sort();
-          setExistingCategories(liveCats);
-        }
+        const custom = getCustomCategories();
+        const liveCats = (Array.isArray(liveTickets) ? liveTickets : [])
+          .map((t) => (t.category || '').trim())
+          .filter(Boolean);
+        const combined = Array.from(
+          new Set([...DEFAULT_TICKET_CATEGORIES, ...custom, ...liveCats])
+        ).filter(Boolean).sort();
+        setExistingCategories(combined);
       },
       () => { }
     );
@@ -162,7 +171,7 @@ export default function CreateTicket({ onNavigate }) {
     setCategory(val);
     if (!val.trim()) {
       setCategorySuggestions(existingCategories);
-      setShowCategorySuggestions(existingCategories.length > 0);
+      setShowCategorySuggestions(true);
       return;
     }
     const q = val.toLowerCase().trim();
@@ -170,7 +179,7 @@ export default function CreateTicket({ onNavigate }) {
       cat.toLowerCase().includes(q)
     );
     setCategorySuggestions(matches);
-    setShowCategorySuggestions(matches.length > 0);
+    setShowCategorySuggestions(true);
   };
 
   const handleCategoryFocus = () => {
@@ -178,8 +187,20 @@ export default function CreateTicket({ onNavigate }) {
     const matches = q
       ? existingCategories.filter((cat) => cat.toLowerCase().includes(q))
       : existingCategories;
-    setCategorySuggestions(matches);
-    setShowCategorySuggestions(matches.length > 0);
+    setCategorySuggestions(matches.length > 0 ? matches : existingCategories);
+    setShowCategorySuggestions(true);
+  };
+
+  // Helper to select an existing category or create & persist a brand new one
+  const selectOrCreateCategory = (catName) => {
+    const trimmed = (catName || '').trim();
+    if (!trimmed) return;
+    saveCustomCategory(trimmed);
+    if (!existingCategories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      setExistingCategories((prev) => [...prev, trimmed].sort());
+    }
+    setCategory(trimmed);
+    setShowCategorySuggestions(false);
   };
 
   // Attachments state
@@ -736,49 +757,95 @@ export default function CreateTicket({ onNavigate }) {
 
                     {/* Category Picker */}
                     <div className="relative mt-3" ref={categoryDropdownRef}>
-                      <label
-                        htmlFor="ticket-category"
-                        className="block text-[11px] font-bold text-slate-700 mb-1 uppercase tracking-wide"
-                      >
-                        Ticket Category
-                      </label>
-                      <div className="relative">
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="ticket-category"
+                          className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide"
+                        >
+                          Ticket Category
+                        </label>
+                        <span className="text-[9px] text-slate-500 font-semibold">
+                          Choose or type new
+                        </span>
+                      </div>
+                      <div className="relative flex items-center">
                         <input
                           id="ticket-category"
                           type="text"
                           value={category}
                           onChange={(e) => handleCategoryChange(e.target.value)}
                           onFocus={handleCategoryFocus}
-                          placeholder={existingCategories[0] ? `e.g. ${existingCategories[0]}` : 'e.g. Mobile Support'}
+                          placeholder="Select or type new category..."
                           disabled={submitting || success}
-                          className="neu-input w-full px-3.5 py-1.5 text-xs font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400"
+                          autoComplete="off"
+                          className="neu-input w-full px-3.5 py-1.5 pr-16 text-xs font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400"
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowCategorySuggestions(!showCategorySuggestions)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer z-20"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-20">
+                          {category && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCategory('');
+                                setCategorySuggestions(existingCategories);
+                                setShowCategorySuggestions(true);
+                              }}
+                              className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer rounded transition-colors"
+                              title="Clear category"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!showCategorySuggestions) {
+                                setCategorySuggestions(existingCategories);
+                              }
+                              setShowCategorySuggestions(!showCategorySuggestions);
+                            }}
+                            className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer rounded transition-colors"
+                            title="Toggle categories dropdown"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Dropdown Suggestions */}
-                      {showCategorySuggestions && categorySuggestions.length > 0 && (
-                        <div className="absolute left-0 right-0 mt-2 bg-[#E8EEF5] rounded-2xl shadow-neu-card border border-white/80 py-1.5 z-30 max-h-48 overflow-y-auto no-scrollbar divide-y divide-slate-200/50">
+                      {/* Dropdown Suggestions & New Category Creation */}
+                      {showCategorySuggestions && (
+                        <div className="absolute left-0 right-0 mt-2 bg-[#E8EEF5] rounded-2xl shadow-neu-card border border-white/80 py-1.5 z-30 max-h-56 overflow-y-auto no-scrollbar divide-y divide-slate-200/50">
+                          {/* Option to create as new category if user typed something that doesn't match an existing one */}
+                          {category.trim() && !existingCategories.some((c) => c.toLowerCase() === category.trim().toLowerCase()) && (
+                            <div className="p-1.5 bg-sky-50/70">
+                              <button
+                                type="button"
+                                onClick={() => selectOrCreateCategory(category)}
+                                className="w-full text-left px-3 py-2 rounded-xl text-xs font-bold text-sky-700 hover:bg-sky-100 flex items-center gap-2 transition-all cursor-pointer"
+                              >
+                                <Plus className="w-4 h-4 text-sky-600 shrink-0" />
+                                <span>Create &quot;<strong>{category.trim()}</strong>&quot; as new category</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Existing category list */}
                           {categorySuggestions.map((cat) => (
                             <button
                               key={cat}
                               type="button"
-                              onClick={() => {
-                                setCategory(cat);
-                                setShowCategorySuggestions(false);
-                              }}
-                              className="w-full text-left px-3.5 py-2 text-xs font-bold text-slate-800 hover:bg-white/40 flex items-center justify-between transition-colors cursor-pointer"
+                              onClick={() => selectOrCreateCategory(cat)}
+                              className="w-full text-left px-3.5 py-2 text-xs font-bold text-slate-800 hover:bg-white/50 flex items-center justify-between transition-colors cursor-pointer"
                             >
                               <span>{cat}</span>
-                              {category === cat && <Check className="w-3.5 h-3.5 text-sky-500" />}
+                              {category.toLowerCase() === cat.toLowerCase() && <Check className="w-3.5 h-3.5 text-sky-500" />}
                             </button>
                           ))}
+
+                          {categorySuggestions.length === 0 && !category.trim() && (
+                            <div className="px-3.5 py-3 text-xs text-slate-500 text-center">
+                              No categories found. Type above to create one!
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
