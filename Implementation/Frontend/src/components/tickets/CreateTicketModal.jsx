@@ -158,6 +158,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
   const fileInputRef = useRef(null);
 
   const createTicketMutation = useCreateTicket();
+  const isSubmittingRef = useRef(false);
   const submitting = createTicketMutation.isPending || uploadingFiles;
   const mutationError = createTicketMutation.isError
     ? (createTicketMutation.error?.message || 'Failed to create ticket.')
@@ -167,6 +168,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
+      isSubmittingRef.current = false;
       setCustomerName('');
       setCustomerEmail('');
       setSubject('');
@@ -219,22 +221,28 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setValidationError(null);
 
     // Frontend validation
     if (!customerName.trim()) {
+      isSubmittingRef.current = false;
       setValidationError('Customer name is required.');
       return;
     }
     if (!customerEmail.trim() || !customerEmail.includes('@')) {
+      isSubmittingRef.current = false;
       setValidationError('Please provide a valid customer email address.');
       return;
     }
     if (!subject.trim()) {
+      isSubmittingRef.current = false;
       setValidationError('Ticket subject is required.');
       return;
     }
     if (!description.trim() || description.trim().length < 5) {
+      isSubmittingRef.current = false;
       setValidationError('Description must be at least 5 characters long.');
       return;
     }
@@ -251,6 +259,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
           uploadedAttachments.push(att);
         }
       } catch (err) {
+        isSubmittingRef.current = false;
         setValidationError(err.message || 'Failed to upload attachments.');
         setUploadingFiles(false);
         return;
@@ -293,6 +302,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       { ticketData, tempId, mutationId },
       {
         onSuccess: (res) => {
+          isSubmittingRef.current = false;
           if (targetAgent && targetAgent.email) {
             dispatchAssignmentNotification({
               ticket: res || ticketData,
@@ -304,6 +314,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
           onClose();
         },
         onError: (err) => {
+          isSubmittingRef.current = false;
           // Network errors — ticket is already showing optimistically, just close
           const isNetworkError = err?.status === 0 || err?.message?.includes('backend');
           if (isNetworkError) {

@@ -21,6 +21,7 @@ class AttachmentItem(BaseModel):
 
 
 class TicketCreate(BaseModel):
+    ticket_id: Optional[str] = None
     customer_id: Optional[str] = None
     raised_by_user_id: Optional[str] = None
     raised_by_name: Optional[str] = None

@@ -301,6 +301,7 @@ export default function CreateTicket({ onNavigate }) {
   // Form Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setError(null);
 
     if (!customerName.trim()) {
