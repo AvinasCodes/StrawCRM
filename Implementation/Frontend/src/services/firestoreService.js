@@ -62,48 +62,95 @@ export function healTicket(t) {
 const LOCAL_STORAGE_KEY = 'strawcrm_tickets_cache';
 const DELETED_CUSTOMERS_STORAGE_KEY = 'strawcrm_deleted_customers';
 const DELETED_TICKETS_STORAGE_KEY = 'strawcrm_deleted_ticket_ids';
-const DUMMY_CUSTOMER_IDS = new Set(['CUST-004', 'CUST-999', 'TKT-004', 'TKT-999', '#CUST-004', '#CUST-999']);
+const DUMMY_CUSTOMER_IDS = new Set(['CUST-004', 'CUST-999', '#CUST-004', '#CUST-999']);
 const DUMMY_CUSTOMER_EMAILS = new Set(['browsertest@example.com']);
 const DUMMY_CUSTOMER_SUBJECTS = new Set(['browser test ticket', 'testing extra fields']);
 
-const _deletedCustomerIds = (() => {
-  const set = new Set(['CUST-004', 'CUST-999', 'BROWSERTEST@EXAMPLE.COM']);
-  try {
-    const raw = localStorage.getItem(DELETED_CUSTOMERS_STORAGE_KEY);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) arr.forEach((id) => set.add(String(id).toUpperCase().trim()));
-    }
-  } catch { }
-  return set;
-})();
+// 1. Purge legacy persistent deletion keys to un-poison any previously deleted IDs in local browser storage
+try {
+  localStorage.removeItem(DELETED_TICKETS_STORAGE_KEY);
+  localStorage.removeItem(DELETED_CUSTOMERS_STORAGE_KEY);
+} catch {}
 
-function persistDeletedCustomers() {
-  try {
-    localStorage.setItem(DELETED_CUSTOMERS_STORAGE_KEY, JSON.stringify(Array.from(_deletedCustomerIds)));
-  } catch { }
+// 2. Ephemeral tombstone maps (15-second TTL window to prevent deletion flickering during network round-trip)
+const TOMBSTONE_TTL_MS = 15000;
+const _ticketTombstones = new Map(); // cleanId -> Date.now()
+const _customerTombstones = new Map(); // cleanCid/email -> Date.now()
+
+export function isTicketTombstoned(rawId) {
+  if (!rawId) return false;
+  const clean = String(rawId).replace(/^#/, '').toUpperCase().trim();
+  const ts = _ticketTombstones.get(clean);
+  if (!ts) return false;
+  if (Date.now() - ts > TOMBSTONE_TTL_MS) {
+    _ticketTombstones.delete(clean);
+    return false;
+  }
+  return true;
 }
 
-// Tombstone set: tracks ticket IDs deleted locally so sync/snapshot can never resurrect them
-const _deletedIds = (() => {
-  const set = new Set(['TKT-004', 'TKT-999']);
-  try {
-    const raw = localStorage.getItem(DELETED_TICKETS_STORAGE_KEY);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        arr.forEach((id) => set.add(String(id).replace(/^#/, '').toUpperCase().trim()));
-      }
-    }
-  } catch { }
-  return set;
-})();
-
-function persistDeletedTicketIds() {
-  try {
-    localStorage.setItem(DELETED_TICKETS_STORAGE_KEY, JSON.stringify(Array.from(_deletedIds)));
-  } catch { }
+export function clearTicketTombstone(rawId) {
+  if (!rawId) return;
+  const clean = String(rawId).replace(/^#/, '').toUpperCase().trim();
+  _ticketTombstones.delete(clean);
+  _ticketTombstones.delete(`#${clean}`);
 }
+
+export function tombstoneTicket(rawId) {
+  if (!rawId) return;
+  const clean = String(rawId).replace(/^#/, '').toUpperCase().trim();
+  _ticketTombstones.set(clean, Date.now());
+}
+
+export function isCustomerTombstoned(rawCid, rawEmail) {
+  const now = Date.now();
+  if (rawCid) {
+    const cleanCid = String(rawCid).replace(/^#/, '').toUpperCase().trim();
+    const ts = _customerTombstones.get(cleanCid);
+    if (ts && now - ts <= TOMBSTONE_TTL_MS) return true;
+    if (ts) _customerTombstones.delete(cleanCid);
+  }
+  if (rawEmail) {
+    const cleanEmail = String(rawEmail).toLowerCase().trim();
+    const ts = _customerTombstones.get(cleanEmail);
+    if (ts && now - ts <= TOMBSTONE_TTL_MS) return true;
+    if (ts) _customerTombstones.delete(cleanEmail);
+  }
+  return false;
+}
+
+export function clearCustomerTombstone(rawCid, rawEmail) {
+  if (rawCid) {
+    _customerTombstones.delete(String(rawCid).replace(/^#/, '').toUpperCase().trim());
+  }
+  if (rawEmail) {
+    _customerTombstones.delete(String(rawEmail).toLowerCase().trim());
+  }
+}
+
+export function tombstoneCustomer(rawCid, rawEmail) {
+  const now = Date.now();
+  if (rawCid) _customerTombstones.set(String(rawCid).replace(/^#/, '').toUpperCase().trim(), now);
+  if (rawEmail) _customerTombstones.set(String(rawEmail).toLowerCase().trim(), now);
+}
+
+// Backward compatible facades so any .has() / .add() / .delete() routes seamlessly to tombstones
+const _deletedIds = {
+  has(id) { return isTicketTombstoned(id); },
+  add(id) { tombstoneTicket(id); return this; },
+  delete(id) { clearTicketTombstone(id); return true; },
+  clear() { _ticketTombstones.clear(); }
+};
+
+const _deletedCustomerIds = {
+  has(id) { return isCustomerTombstoned(id, id); },
+  add(id) { tombstoneCustomer(id, id); return this; },
+  delete(id) { clearCustomerTombstone(id, id); return true; },
+  clear() { _customerTombstones.clear(); }
+};
+
+function persistDeletedCustomers() {}
+function persistDeletedTicketIds() {}
 
 /**
  * Hard reload the browser window, equivalent to Ctrl + Shift + R.
@@ -183,6 +230,44 @@ function notifyLocalListeners() {
 }
 
 /**
+ * Update monotonic ticket sequence counter in localStorage
+ */
+export function updateTicketSeq(id) {
+  const m = String(id || '').match(/(\d+)/);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    try {
+      const curr = parseInt(localStorage.getItem('strawcrm_ticket_seq') || '0', 10);
+      if (n > curr) localStorage.setItem('strawcrm_ticket_seq', String(n));
+    } catch {}
+  }
+}
+
+/**
+ * Generate a strictly monotonic, sequential Ticket ID (e.g. TKT-001, TKT-002)
+ * Ensures deleted IDs are NEVER recycled or re-used.
+ */
+export function generateTicketId(existingTickets = []) {
+  let maxNum = 0;
+  (existingTickets || []).forEach((t) => {
+    const m = (t.ticket_id || '').match(/(\d+)/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  });
+  let storedSeq = 0;
+  try {
+    storedSeq = parseInt(localStorage.getItem('strawcrm_ticket_seq') || '0', 10);
+  } catch {}
+  const nextNum = Math.max(maxNum, storedSeq) + 1;
+  try {
+    localStorage.setItem('strawcrm_ticket_seq', String(nextNum));
+  } catch {}
+  return `TKT-${String(nextNum).padStart(3, '0')}`;
+}
+
+/**
  * Background synchronization with FastAPI backend REST API.
  * Ensures tickets created by ANY ID, curl, test suite, or browser are immediately loaded.
  */
@@ -200,7 +285,12 @@ export async function syncFromBackend() {
         const serverTickets = await res.json();
         if (Array.isArray(serverTickets)) {
           if (serverTickets.length === 0) {
-            _localTickets = [];
+            // If local tickets exist and were created within 60s, keep them
+            const nowMs = Date.now();
+            _localTickets = _localTickets.filter((lt) => {
+              const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
+              return (ageMs < 60000 || lt._isOptimistic) && !_deletedIds.has(lt.ticket_id);
+            });
             persistLocalTickets();
             notifyLocalListeners();
             return;
@@ -212,6 +302,7 @@ export async function syncFromBackend() {
           serverTickets.forEach((st) => {
             const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
             if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
+            updateTicketSeq(st.ticket_id);
             const key = (st.ticket_id || '').toUpperCase();
             const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
 
@@ -231,6 +322,7 @@ export async function syncFromBackend() {
                 : (lt?.raised_by_user_id || st.raised_by_user_id || ''),
               raised_by_name: st.raised_by_name || lt?.raised_by_name || st.customer_name || 'Customer',
               created_at: st.created_at || lt?.created_at || new Date().toISOString(),
+              _isOptimistic: false,
             };
 
             if (lt) {
@@ -263,14 +355,14 @@ export async function syncFromBackend() {
             map.set(key, merged);
           });
 
-          // Only keep local tickets that haven't arrived from server yet if they were created offline by THIS client within the last 15s
+          // Only keep local tickets that haven't arrived from server yet if they were created offline by THIS client within the last 60s or marked optimistic
           const nowMs = Date.now();
           _localTickets.forEach((lt) => {
             const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
             if (_deletedIds.has(ltKey)) return;
             if (!map.has(ltKey)) {
               const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
-              if (ageMs < 15000 && lt._isOptimistic) {
+              if (ageMs < 60000 || lt._isOptimistic) {
                 map.set(ltKey, lt);
               }
             }
@@ -316,9 +408,7 @@ function handleWebSocketMessage(msg) {
 
   if (msg.type === 'ticket_deleted') {
     const cleanId = String(msg.ticket_id || '').trim().replace(/^#/, '').toUpperCase();
-    _deletedIds.add(cleanId);
-    _deletedIds.add(`#${cleanId}`);
-    persistDeletedTicketIds();
+    tombstoneTicket(cleanId);
 
     _localTickets = _localTickets.filter(
       (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() !== cleanId
@@ -329,10 +419,8 @@ function handleWebSocketMessage(msg) {
     const ids = (msg.ticket_ids || []).map((id) => String(id).trim().replace(/^#/, '').toUpperCase());
     const idSet = new Set(ids);
     ids.forEach((id) => {
-      _deletedIds.add(id);
-      _deletedIds.add(`#${id}`);
+      tombstoneTicket(id);
     });
-    persistDeletedTicketIds();
 
     _localTickets = _localTickets.filter(
       (t) => !idSet.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
@@ -341,8 +429,7 @@ function handleWebSocketMessage(msg) {
     notifyLocalListeners();
   } else if (msg.type === 'customer_deleted') {
     const cleanCid = String(msg.customer_id || '').trim().replace(/^#/, '').toUpperCase();
-    _deletedCustomerIds.add(cleanCid);
-    persistDeletedCustomers();
+    tombstoneCustomer(cleanCid);
 
     _localTickets = _localTickets.filter((t) => {
       const cid = (t.customer_id || '').replace(/^#/, '').toUpperCase();
@@ -354,23 +441,27 @@ function handleWebSocketMessage(msg) {
   } else if (msg.type === 'ticket_created' && msg.ticket) {
     const newT = msg.ticket;
     const tid = (newT.ticket_id || '').replace(/^#/, '').toUpperCase();
-    if (_deletedIds.has(tid)) return;
+    clearTicketTombstone(tid);
+    updateTicketSeq(tid);
 
     const idx = _localTickets.findIndex(
       (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid
     );
     if (idx >= 0) {
-      _localTickets[idx] = { ..._localTickets[idx], ...newT };
+      _localTickets[idx] = { ..._localTickets[idx], ...newT, _isOptimistic: false };
     } else {
-      _localTickets = [newT, ..._localTickets];
+      _localTickets = [{ ...newT, _isOptimistic: false }, ..._localTickets];
     }
     persistLocalTickets();
     notifyLocalListeners();
   } else if (msg.type === 'ticket_updated' && msg.ticket) {
     const updated = msg.ticket;
     const tid = (updated.ticket_id || '').replace(/^#/, '').toUpperCase();
+    clearTicketTombstone(tid);
+    updateTicketSeq(tid);
+
     _localTickets = _localTickets.map((t) =>
-      (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid ? { ...t, ...updated } : t
+      (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid ? { ...t, ...updated, _isOptimistic: false } : t
     );
     persistLocalTickets();
     notifyLocalListeners();
@@ -443,20 +534,6 @@ export function initWebSocket() {
 initWebSocket();
 syncFromBackend();
 
-/**
- * Generate a sequential or unique Ticket ID (e.g. TKT-001, TKT-002)
- */
-function generateTicketId(existingTickets = []) {
-  let maxNum = 0;
-  existingTickets.forEach((t) => {
-    const m = (t.ticket_id || '').match(/(\d+)/);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (n > maxNum) maxNum = n;
-    }
-  });
-  return `TKT-${String(maxNum + 1).padStart(3, '0')}`;
-}
 
 /**
  * Subscribe to realtime tickets list with live onSnapshot listener and backend fallback.
@@ -945,6 +1022,11 @@ export function subscribeTicketDetail(ticketId, onUpdate, onError) {
  */
 export async function createTicket(ticketData) {
   const ticketId = ticketData.ticket_id || generateTicketId(_localTickets);
+  clearTicketTombstone(ticketId);
+  if (ticketData.customer_id || ticketData.customer_email) {
+    clearCustomerTombstone(ticketData.customer_id, ticketData.customer_email);
+  }
+  updateTicketSeq(ticketId);
   const nowIso = new Date().toISOString();
 
   const customerId = ticketData.customer_id || `CUST-${String(_localTickets.length + 1).padStart(3, '0')}`;
@@ -970,11 +1052,14 @@ export async function createTicket(ticketData) {
     created_at: nowIso,
     updated_at: nowIso,
     notes: ticketData.notes || [],
+    _isOptimistic: true,
   };
 
   // Immediate optimistic addition (<1ms)
   _localTickets = [newTicket, ..._localTickets.filter((t) => t.ticket_id !== ticketId)];
   notifyLocalListeners();
+
+  let resolvedTicket = newTicket;
 
   // 1. Sync to Backend REST API so any user ID, browser, or curl can immediately access it
   try {
@@ -987,12 +1072,14 @@ export async function createTicket(ticketData) {
     if (res.ok) {
       const created = await res.json();
       if (created && created.ticket_id) {
-        newTicket.ticket_id = created.ticket_id;
+        clearTicketTombstone(created.ticket_id);
+        updateTicketSeq(created.ticket_id);
+        resolvedTicket = { ...newTicket, ...created, _isOptimistic: false };
         const idx = _localTickets.findIndex((t) => t.ticket_id === ticketId || t.ticket_id === created.ticket_id);
         if (idx !== -1) {
-          _localTickets[idx] = { ..._localTickets[idx], ...created };
+          _localTickets[idx] = resolvedTicket;
         } else {
-          _localTickets = [{ ...newTicket, ...created }, ..._localTickets];
+          _localTickets = [resolvedTicket, ..._localTickets];
         }
         notifyLocalListeners();
       }
@@ -1015,15 +1102,12 @@ export async function createTicket(ticketData) {
   // 2. Sync to Firestore in background (gracefully catches quota errors)
   if (db) {
     try {
-      const ticketRef = doc(db, TICKETS_COLLECTION, newTicket.ticket_id);
-      setDoc(ticketRef, newTicket).catch(() => { });
+      const ticketRef = doc(db, TICKETS_COLLECTION, resolvedTicket.ticket_id);
+      setDoc(ticketRef, resolvedTicket).catch(() => { });
     } catch { }
   }
 
-  return {
-    ticket_id: newTicket.ticket_id,
-    created_at: nowIso,
-  };
+  return resolvedTicket;
 }
 
 /**
@@ -1218,6 +1302,9 @@ export async function updateTicket(ticketId, updateData) {
   const nowIso = new Date().toISOString();
   const cleanId = String(ticketId).trim().replace(/^#/, '');
   const upperCleanId = cleanId.toUpperCase();
+  clearTicketTombstone(ticketId);
+  clearTicketTombstone(cleanId);
+  updateTicketSeq(cleanId);
 
   let updatedTicket = null;
 

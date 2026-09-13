@@ -233,10 +233,36 @@ def _upsert_customer(ticket: dict) -> None:
     _save_customers_db(cdb)
 
 
+_ticket_seq_counter: int = 0
+_cust_seq_counter: int = 0
+
+
+def _update_ticket_seq(val_str: str) -> None:
+    global _ticket_seq_counter
+    nums = re.findall(r"(\d+)", str(val_str))
+    if nums:
+        val = int(nums[-1])
+        if val > _ticket_seq_counter:
+            _ticket_seq_counter = val
+
+
+def _get_next_ticket_id(db: Dict[str, Any]) -> str:
+    global _ticket_seq_counter
+    for k in db.keys():
+        _update_ticket_seq(str(k))
+    _ticket_seq_counter += 1
+    return f"TKT-{_ticket_seq_counter:03d}"
+
+
 def _get_or_assign_customer_id(ticket: dict, db: Dict[str, Any]) -> str:
-    """Find existing customer_id for matching customer, or generate next CUST-xxx."""
+    """Find existing customer_id for matching customer, or generate next monotonic CUST-xxx."""
+    global _cust_seq_counter
     if ticket.get("customer_id"):
-        return str(ticket["customer_id"]).strip()
+        cid_val = str(ticket["customer_id"]).strip()
+        nums = re.findall(r"(\d+)", cid_val)
+        if nums and int(nums[-1]) > _cust_seq_counter:
+            _cust_seq_counter = int(nums[-1])
+        return cid_val
 
     email = str(ticket.get("customer_email", "")).strip().lower()
     name = str(ticket.get("customer_name", "")).strip().lower()
@@ -249,16 +275,27 @@ def _get_or_assign_customer_id(ticket: dict, db: Dict[str, Any]) -> str:
             if t.get("customer_id"):
                 return str(t["customer_id"]).strip()
 
-    # Otherwise generate a new CUST-xxx
-    max_cust_num = 0
+    # Search customers_db
+    cdb = _ensure_customers_db()
+    for c in cdb.values():
+        c_email = str(c.get("customer_email", "")).strip().lower()
+        c_name = str(c.get("customer_name", "")).strip().lower()
+        if (email and c_email == email) or (name and c_name == name):
+            if c.get("customer_id"):
+                return str(c["customer_id"]).strip()
+
+    # Otherwise generate a new monotonic CUST-xxx
     for t in db.values():
-        cid = str(t.get("customer_id", ""))
-        nums = re.findall(r"(\d+)", cid)
-        if nums:
-            val = int(nums[-1])
-            if val > max_cust_num:
-                max_cust_num = val
-    return f"CUST-{max_cust_num + 1:03d}"
+        nums = re.findall(r"(\d+)", str(t.get("customer_id", "")))
+        if nums and int(nums[-1]) > _cust_seq_counter:
+            _cust_seq_counter = int(nums[-1])
+    for c in cdb.values():
+        nums = re.findall(r"(\d+)", str(c.get("customer_id", "")))
+        if nums and int(nums[-1]) > _cust_seq_counter:
+            _cust_seq_counter = int(nums[-1])
+
+    _cust_seq_counter += 1
+    return f"CUST-{_cust_seq_counter:03d}"
 
 
 _DB_CACHE: Optional[Dict[str, Dict[str, Any]]] = None
@@ -625,15 +662,10 @@ class FirestoreClient:
 
         # Determine ticket ID
         ticket_id = payload.get("ticket_id")
-        if not ticket_id:
-            max_num = 0
-            for k in db.keys():
-                nums = re.findall(r"(\d+)", str(k))
-                if nums:
-                    val = int(nums[-1])
-                    if val > max_num:
-                        max_num = val
-            ticket_id = f"TKT-{max_num + 1:03d}"
+        if not ticket_id or ticket_id in db:
+            ticket_id = _get_next_ticket_id(db)
+        else:
+            _update_ticket_seq(ticket_id)
 
         # Determine customer ID
         customer_id = payload.get("customer_id")
