@@ -45,6 +45,9 @@ async def get_customer_tickets(
     return TicketService.list_tickets(customer_id=customer_id)
 
 
+from app.core.ws_manager import ws_manager
+
+
 @router.delete("/{customer_id}")
 async def delete_customer(
     customer_id: str,
@@ -53,4 +56,9 @@ async def delete_customer(
     """
     Delete a customer profile and remove all associated tickets.
     """
-    return TicketService.delete_customer(customer_id)
+    res = TicketService.delete_customer(customer_id)
+    try:
+        await ws_manager.broadcast({"type": "customer_deleted", "customer_id": customer_id})
+    except Exception:
+        pass
+    return res

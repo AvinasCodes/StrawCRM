@@ -84,6 +84,32 @@ app.include_router(analytics.router)
 app.include_router(dashboard.router)
 app.include_router(users.router)
 
+# Realtime WebSocket Endpoint for Multi-Browser / Multi-Client Synchronizations
+from fastapi import WebSocket, WebSocketDisconnect
+from app.core.ws_manager import ws_manager
+import json
+
+
+@app.websocket("/ws")
+@app.websocket("/api/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data:
+                try:
+                    payload = json.loads(data)
+                    if payload.get("type") == "ping":
+                        await websocket.send_json({"type": "pong"})
+                except Exception:
+                    pass
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception:
+        ws_manager.disconnect(websocket)
+
+
 # Mount uploads static directory for ticket attachments
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)

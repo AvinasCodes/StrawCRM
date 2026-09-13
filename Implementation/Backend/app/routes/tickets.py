@@ -15,6 +15,9 @@ from app.services.ticket_service import TicketService
 router = APIRouter(prefix="/api/tickets", tags=["Tickets"])
 
 
+from app.core.ws_manager import ws_manager
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_ticket(
     payload: TicketCreate,
@@ -40,7 +43,12 @@ async def create_ticket(
             or payload.customer_id
             or f"usr_{payload.customer_name.lower().replace(' ', '_')}"
         )
-    return TicketService.create_ticket(payload)
+    created = TicketService.create_ticket(payload)
+    try:
+        await ws_manager.broadcast({"type": "ticket_created", "ticket": created})
+    except Exception:
+        pass
+    return created
 
 
 @router.get("", response_model=List[TicketListItem])
@@ -51,14 +59,18 @@ async def list_tickets(
     user: dict = Depends(get_current_user_optional),
 ):
     """
-    List, search, and filter tickets from database.
-    Universal endpoint: accessible across all user logins and team sessions.
+    List all tickets with search and status filtering.
+    Universal endpoint: displays tickets created by any account or agent across the workspace.
     """
-    return TicketService.list_tickets(search=search, status_filter=status, customer_id=customer_id)
+    return TicketService.list_tickets(
+        search=search,
+        status_filter=status,
+        customer_id=customer_id,
+    )
 
 
 @router.get("/customer/{customer_id}", response_model=List[TicketListItem])
-async def get_tickets_by_customer(
+async def list_tickets_by_customer(
     customer_id: str,
     user: dict = Depends(get_current_user_optional),
 ):
@@ -91,7 +103,12 @@ async def update_ticket(
     Update ticket status and optionally append an internal note.
     Protected endpoint: accepts valid Firebase JWT or authenticated session.
     """
-    return TicketService.update_ticket(ticket_id, payload)
+    updated = TicketService.update_ticket(ticket_id, payload)
+    try:
+        await ws_manager.broadcast({"type": "ticket_updated", "ticket": updated})
+    except Exception:
+        pass
+    return updated
 
 
 @router.post("/{ticket_id}/notes", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
@@ -103,25 +120,24 @@ async def add_note(
 ):
     """
     Dedicated endpoint to add an internal note to a ticket.
-
-    Supports idempotency via X-Client-Mutation-Id header:
-    If the same mutation ID is received twice (due to network retry from the
-    offline sync queue), the note will NOT be duplicated.
-
-    Protected endpoint: requires valid Firebase JWT Bearer token.
     """
     # Read client mutation ID from header (preferred) or body field
     client_mutation_id = (
         request.headers.get("X-Client-Mutation-Id")
         or payload.client_mutation_id
     )
-    return TicketService.add_note(
+    res = TicketService.add_note(
         ticket_id=ticket_id,
         note_text=payload.note_text,
         author_name=payload.author_name,
         author_email=payload.author_email,
         client_mutation_id=client_mutation_id,
     )
+    try:
+        await ws_manager.broadcast({"type": "ticket_updated", "ticket": res})
+    except Exception:
+        pass
+    return res
 
 
 @router.delete("/{ticket_id}")
@@ -132,7 +148,12 @@ async def delete_ticket(
     """
     Delete a single ticket by ticket ID.
     """
-    return TicketService.delete_ticket(ticket_id)
+    res = TicketService.delete_ticket(ticket_id)
+    try:
+        await ws_manager.broadcast({"type": "ticket_deleted", "ticket_id": ticket_id})
+    except Exception:
+        pass
+    return res
 
 
 @router.post("/bulk-delete")
@@ -143,7 +164,12 @@ async def bulk_delete_tickets(
     """
     Bulk delete multiple tickets by ticket IDs.
     """
-    return TicketService.delete_tickets_bulk(payload.ticket_ids)
+    res = TicketService.delete_tickets_bulk(payload.ticket_ids)
+    try:
+        await ws_manager.broadcast({"type": "tickets_bulk_deleted", "ticket_ids": payload.ticket_ids})
+    except Exception:
+        pass
+    return res
 
 
 @router.delete("")
@@ -154,7 +180,12 @@ async def bulk_delete_tickets_delete(
     """
     Bulk delete tickets via DELETE method.
     """
-    return TicketService.delete_tickets_bulk(payload.ticket_ids)
+    res = TicketService.delete_tickets_bulk(payload.ticket_ids)
+    try:
+        await ws_manager.broadcast({"type": "tickets_bulk_deleted", "ticket_ids": payload.ticket_ids})
+    except Exception:
+        pass
+    return res
 
 
 @router.post("/{ticket_id}/send-email", response_model=EmailSendResponse)

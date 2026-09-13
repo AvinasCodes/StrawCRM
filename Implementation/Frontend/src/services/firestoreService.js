@@ -199,11 +199,13 @@ export async function syncFromBackend() {
       if (res.ok) {
         const serverTickets = await res.json();
         if (Array.isArray(serverTickets)) {
-          if (serverTickets.length === 0 && _localTickets.length > 0) {
+          if (serverTickets.length === 0) {
+            _localTickets = [];
+            persistLocalTickets();
+            notifyLocalListeners();
             return;
           }
           const map = new Map();
-          _localTickets.forEach((t) => map.set((t.ticket_id || '').toUpperCase(), { ...t }));
 
           // 1. Index server tickets — Server is the authoritative source of truth for inquiry details
           // Skip any tickets that were deleted locally (tombstone guard)
@@ -211,7 +213,7 @@ export async function syncFromBackend() {
             const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
             if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
             const key = (st.ticket_id || '').toUpperCase();
-            const lt = map.get(key) || _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
+            const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
 
             const merged = {
               ...st,
@@ -261,14 +263,14 @@ export async function syncFromBackend() {
             map.set(key, merged);
           });
 
-          // Preserve any recent optimistic tickets (< 90s) that haven't arrived from server yet
+          // Only keep local tickets that haven't arrived from server yet if they were created offline by THIS client within the last 15s
           const nowMs = Date.now();
           _localTickets.forEach((lt) => {
             const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
             if (_deletedIds.has(ltKey)) return;
             if (!map.has(ltKey)) {
               const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
-              if (ageMs < 90000) {
+              if (ageMs < 15000 && lt._isOptimistic) {
                 map.set(ltKey, lt);
               }
             }
@@ -279,6 +281,7 @@ export async function syncFromBackend() {
             (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
           );
           _localTickets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+          persistLocalTickets();
           notifyLocalListeners();
 
           // Notify any active detail listeners of updated ticket state
@@ -301,7 +304,143 @@ export async function syncFromBackend() {
   return _syncPromise;
 }
 
-// Kick off background sync immediately
+// ─────────────────────────────────────────────────────────────────────────────
+// Real-time WebSocket Synchronizer (Instant Cross-Browser Updates)
+// ─────────────────────────────────────────────────────────────────────────────
+let _ws = null;
+let _wsReconnectTimer = null;
+let _wsPingTimer = null;
+
+function handleWebSocketMessage(msg) {
+  if (!msg || !msg.type) return;
+
+  if (msg.type === 'ticket_deleted') {
+    const cleanId = String(msg.ticket_id || '').trim().replace(/^#/, '').toUpperCase();
+    _deletedIds.add(cleanId);
+    _deletedIds.add(`#${cleanId}`);
+    persistDeletedTicketIds();
+
+    _localTickets = _localTickets.filter(
+      (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() !== cleanId
+    );
+    persistLocalTickets();
+    notifyLocalListeners();
+  } else if (msg.type === 'tickets_bulk_deleted') {
+    const ids = (msg.ticket_ids || []).map((id) => String(id).trim().replace(/^#/, '').toUpperCase());
+    const idSet = new Set(ids);
+    ids.forEach((id) => {
+      _deletedIds.add(id);
+      _deletedIds.add(`#${id}`);
+    });
+    persistDeletedTicketIds();
+
+    _localTickets = _localTickets.filter(
+      (t) => !idSet.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
+    );
+    persistLocalTickets();
+    notifyLocalListeners();
+  } else if (msg.type === 'customer_deleted') {
+    const cleanCid = String(msg.customer_id || '').trim().replace(/^#/, '').toUpperCase();
+    _deletedCustomerIds.add(cleanCid);
+    persistDeletedCustomers();
+
+    _localTickets = _localTickets.filter((t) => {
+      const cid = (t.customer_id || '').replace(/^#/, '').toUpperCase();
+      const email = (t.customer_email || '').toLowerCase();
+      return cid !== cleanCid && email !== cleanCid.toLowerCase();
+    });
+    persistLocalTickets();
+    notifyLocalListeners();
+  } else if (msg.type === 'ticket_created' && msg.ticket) {
+    const newT = msg.ticket;
+    const tid = (newT.ticket_id || '').replace(/^#/, '').toUpperCase();
+    if (_deletedIds.has(tid)) return;
+
+    const idx = _localTickets.findIndex(
+      (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid
+    );
+    if (idx >= 0) {
+      _localTickets[idx] = { ..._localTickets[idx], ...newT };
+    } else {
+      _localTickets = [newT, ..._localTickets];
+    }
+    persistLocalTickets();
+    notifyLocalListeners();
+  } else if (msg.type === 'ticket_updated' && msg.ticket) {
+    const updated = msg.ticket;
+    const tid = (updated.ticket_id || '').replace(/^#/, '').toUpperCase();
+    _localTickets = _localTickets.map((t) =>
+      (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid ? { ...t, ...updated } : t
+    );
+    persistLocalTickets();
+    notifyLocalListeners();
+  }
+}
+
+export function initWebSocket() {
+  if (typeof window === 'undefined') return;
+  if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  try {
+    const wsProto = window.location.protocol === 'https:' || API_BASE_URL.startsWith('https:') ? 'wss:' : 'ws:';
+    let host = API_BASE_URL.replace(/^https?:\/\//, '');
+    if (!host || host.startsWith('/')) {
+      host = window.location.host;
+    }
+    const wsUrl = `${wsProto}//${host}/api/ws`;
+
+    _ws = new WebSocket(wsUrl);
+
+    _ws.onopen = () => {
+      if (_wsReconnectTimer) {
+        clearTimeout(_wsReconnectTimer);
+        _wsReconnectTimer = null;
+      }
+      if (_wsPingTimer) clearInterval(_wsPingTimer);
+      _wsPingTimer = setInterval(() => {
+        if (_ws && _ws.readyState === WebSocket.OPEN) {
+          try { _ws.send(JSON.stringify({ type: 'ping' })); } catch {}
+        }
+      }, 25000);
+    };
+
+    _ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        handleWebSocketMessage(msg);
+      } catch (err) {
+        console.warn('[WebSocket] Error parsing message:', err);
+      }
+    };
+
+    _ws.onclose = () => {
+      _ws = null;
+      if (_wsPingTimer) {
+        clearInterval(_wsPingTimer);
+        _wsPingTimer = null;
+      }
+      if (!_wsReconnectTimer) {
+        _wsReconnectTimer = setTimeout(() => {
+          _wsReconnectTimer = null;
+          initWebSocket();
+        }, 2000);
+      }
+    };
+
+    _ws.onerror = () => {
+      if (_ws) {
+        try { _ws.close(); } catch {}
+      }
+    };
+  } catch (err) {
+    console.debug('[WebSocket] Init notice:', err);
+  }
+}
+
+// Connect WebSocket and kick off background sync immediately
+initWebSocket();
 syncFromBackend();
 
 /**
