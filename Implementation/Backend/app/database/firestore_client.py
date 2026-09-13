@@ -3,6 +3,7 @@ import json
 import os
 import re
 import copy
+import threading
 import urllib.request
 import urllib.error
 from typing import Optional, Dict, Any, List, Union
@@ -12,7 +13,9 @@ from app.core.config import settings
 
 logger = logging.getLogger("strawcrm.firestore")
 
-BASE_URL = f"https://firestore.googleapis.com/v1/projects/{settings.FIREBASE_PROJECT_ID}/databases/(default)/documents"
+FIRESTORE_BASE_URL = f"https://firestore.googleapis.com/v1/projects/{settings.FIREBASE_PROJECT_ID}/databases/(default)/documents"
+# Keep backward compat alias
+BASE_URL = FIRESTORE_BASE_URL
 
 # File-based durable store path
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
@@ -21,6 +24,115 @@ CUSTOMERS_DB_FILE = DATA_DIR / "customers_db.json"
 
 # Default seed tickets (empty - clean production database)
 SEED_TICKETS: List[Dict[str, Any]] = []
+
+
+def _firestore_doc_to_dict(doc: dict) -> dict:
+    """Convert a Firestore REST API document (with typed fields) to a plain Python dict."""
+    def _value(v: dict):
+        if "stringValue" in v:
+            return v["stringValue"]
+        if "integerValue" in v:
+            return int(v["integerValue"])
+        if "doubleValue" in v:
+            return float(v["doubleValue"])
+        if "booleanValue" in v:
+            return v["booleanValue"]
+        if "nullValue" in v:
+            return None
+        if "arrayValue" in v:
+            return [_value(i) for i in v["arrayValue"].get("values", [])]
+        if "mapValue" in v:
+            return {k: _value(fv) for k, fv in v["mapValue"].get("fields", {}).items()}
+        return None
+
+    fields = doc.get("fields", {})
+    return {k: _value(fv) for k, fv in fields.items()}
+
+
+def _bootstrap_from_firestore() -> None:
+    """
+    On startup, fetch all tickets from Cloud Firestore REST API and seed
+    the local JSON database if it is empty (e.g. after a Render restart).
+    Runs in a background thread so it never blocks server startup.
+    """
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Check if local DB already has data
+        existing: Dict[str, Any] = {}
+        if DB_FILE.exists():
+            try:
+                text = DB_FILE.read_text(encoding="utf-8").strip()
+                if text:
+                    data = json.loads(text)
+                    if isinstance(data, dict):
+                        existing = data
+            except Exception:
+                pass
+
+        # Only bootstrap if local DB is empty
+        if existing:
+            logger.info("[Bootstrap] Local DB has %d tickets — skipping Firestore fetch.", len(existing))
+            return
+
+        logger.info("[Bootstrap] Local DB is empty — fetching tickets from Cloud Firestore...")
+
+        url = f"{FIRESTORE_BASE_URL}/tickets"
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+
+        docs = body.get("documents", [])
+        if not docs:
+            logger.info("[Bootstrap] Firestore returned 0 ticket documents.")
+            return
+
+        merged: Dict[str, Any] = {}
+        for doc in docs:
+            try:
+                ticket = _firestore_doc_to_dict(doc)
+                tid = str(ticket.get("ticket_id", "")).strip().upper()
+                if not tid:
+                    # fall back to doc name segment
+                    tid = doc.get("name", "").rsplit("/", 1)[-1].upper()
+                if tid:
+                    # Ensure required list fields exist
+                    if not isinstance(ticket.get("notes"), list):
+                        ticket["notes"] = []
+                    if not isinstance(ticket.get("attachments"), list):
+                        ticket["attachments"] = []
+                    merged[tid] = ticket
+            except Exception as e:
+                logger.warning("[Bootstrap] Skipping malformed Firestore doc: %s", e)
+
+        if merged:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            content = json.dumps(merged, indent=2, ensure_ascii=False)
+            DB_FILE.write_text(content + "\n", encoding="utf-8")
+            logger.info("[Bootstrap] Seeded local DB with %d tickets from Firestore.", len(merged))
+
+            # Also rebuild customers DB from these tickets
+            try:
+                global _DB_CACHE, _DB_MTIME
+                _DB_CACHE = merged
+                _DB_MTIME = os.path.getmtime(DB_FILE)
+                for t in merged.values():
+                    _upsert_customer(t)
+            except Exception as e:
+                logger.warning("[Bootstrap] Customer DB rebuild warning: %s", e)
+        else:
+            logger.info("[Bootstrap] No valid tickets parsed from Firestore.")
+
+    except urllib.error.URLError as e:
+        logger.warning("[Bootstrap] Could not reach Firestore (network/offline?): %s", e)
+    except Exception as e:
+        logger.warning("[Bootstrap] Firestore bootstrap error: %s", e)
+
+
+# Kick off bootstrap in a background thread immediately on module import
+# (so it runs when the FastAPI app starts on Render)
+_bootstrap_thread = threading.Thread(target=_bootstrap_from_firestore, daemon=True)
+_bootstrap_thread.start()
 
 
 _CUST_DB_CACHE: Optional[Dict[str, Dict[str, Any]]] = None

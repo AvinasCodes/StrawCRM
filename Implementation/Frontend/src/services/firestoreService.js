@@ -187,7 +187,11 @@ export async function syncFromBackend() {
       if (res.ok) {
         const serverTickets = await res.json();
         if (Array.isArray(serverTickets)) {
+          if (serverTickets.length === 0 && _localTickets.length > 0) {
+            return;
+          }
           const map = new Map();
+          _localTickets.forEach((t) => map.set((t.ticket_id || '').toUpperCase(), { ...t }));
 
           // 1. Index server tickets — Server is the authoritative source of truth for inquiry details
           // Skip any tickets that were deleted locally (tombstone guard)
@@ -195,7 +199,7 @@ export async function syncFromBackend() {
             const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
             if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
             const key = (st.ticket_id || '').toUpperCase();
-            const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
+            const lt = map.get(key) || _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
 
             const merged = {
               ...st,

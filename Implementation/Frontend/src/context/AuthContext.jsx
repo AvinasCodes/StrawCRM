@@ -30,26 +30,17 @@ export function AuthProvider({ children }) {
           const token = await firebaseUser.getIdToken();
           setUser(firebaseUser);
           setIdToken(token);
+          // Clear any stale simulation session so it can't pollute future state
+          try { localStorage.removeItem('strawcrm_auth_session'); } catch {}
           recordAuthenticatedUser(firebaseUser);
           // Immediately sync all tickets and notes for the logged-in user
           syncFromBackend();
         } else {
-          try {
-            const raw = localStorage.getItem('strawcrm_auth_session');
-            if (raw) {
-              const { user: savedUser, idToken: savedToken } = JSON.parse(raw);
-              if (savedUser) {
-                setUser(savedUser);
-                setIdToken(savedToken);
-                recordAuthenticatedUser(savedUser);
-                syncFromBackend();
-                setLoading(false);
-                return;
-              }
-            }
-          } catch {}
+          // Firebase says no user → clear everything. Do NOT restore a stale
+          // localStorage simulation session here (that caused the "Google User" bug).
           setUser(null);
           setIdToken(null);
+          try { localStorage.removeItem('strawcrm_auth_session'); } catch {}
         }
         setLoading(false);
       });
@@ -153,9 +144,12 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = async () => {
     const res = await signInWithGoogle();
     if (res.success) {
+      // Clear any stale simulation session that could show "Google User"
+      try { localStorage.removeItem('strawcrm_auth_session'); } catch {}
       setUser(res.user);
       setIdToken(res.idToken);
       recordAuthenticatedUser(res.user, 'Online');
+      syncFromBackend();
     }
     return res;
   };
