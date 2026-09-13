@@ -139,6 +139,7 @@ async def test_email_dispatch(to: str = "avinasharyan481@gmail.com"):
         "status": "Open",
         "description": "Testing live email delivery from Render deployment using EmailService",
     }
+    service_success = EmailService.send_assignment_notification(ticket, to, "Superman")
     brevo_key = (os.getenv("BREVO_API_KEY") or getattr(settings, "BREVO_API_KEY", "") or "").strip()
     resend_key = (os.getenv("RESEND_API_KEY") or getattr(settings, "RESEND_API_KEY", "") or "").strip()
     diagnostics["brevo_configured"] = bool(brevo_key)
