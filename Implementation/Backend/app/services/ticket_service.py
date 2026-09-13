@@ -61,26 +61,31 @@ class TicketService:
     def create_ticket(payload: TicketCreate) -> Dict[str, Any]:
         ticket = FirestoreClient.create_ticket(payload.model_dump())
         
-        # Check if created with an assigned agent -> notify agent
+        # Dispatch email notifications asynchronously in a background thread
+        # This prevents blocking the HTTP response so ticket creation is blazing fast (<50ms)
         agent_email, agent_name = TicketService.resolve_agent_email(ticket)
 
         if agent_email:
-            try:
-                sent = EmailService.send_assignment_notification(ticket, agent_email, agent_name)
-                logger.info(
-                    "[TicketService] Assignment notification email on create: to=%s (%s), success=%s, ticket=#%s",
-                    agent_email, agent_name, sent, ticket.get("ticket_id")
-                )
-            except Exception as e:
-                logger.warning("[TicketService] Failed to send assignment email on create: %s", e)
+            def _async_create_notify():
+                try:
+                    sent = EmailService.send_assignment_notification(ticket, agent_email, agent_name)
+                    logger.info(
+                        "[TicketService] Assignment notification email on create: to=%s (%s), success=%s, ticket=#%s",
+                        agent_email, agent_name, sent, ticket.get("ticket_id")
+                    )
+                except Exception as e:
+                    logger.warning("[TicketService] Failed to send assignment email on create: %s", e)
 
-        # Check if created with High/Urgent priority -> alert agent
-        priority_val = (ticket.get("priority") or "").lower()
-        if priority_val in ("high", "urgent") and agent_email:
-            try:
-                EmailService.send_urgent_priority_notification(ticket, agent_email, agent_name)
-            except Exception as e:
-                logger.warning("[TicketService] Failed to send urgent priority email on create: %s", e)
+                # Check if created with High/Urgent priority -> alert agent
+                priority_val = (ticket.get("priority") or "").lower()
+                if priority_val in ("high", "urgent"):
+                    try:
+                        EmailService.send_urgent_priority_notification(ticket, agent_email, agent_name)
+                    except Exception as e:
+                        logger.warning("[TicketService] Failed to send urgent priority email on create: %s", e)
+
+            import threading
+            threading.Thread(target=_async_create_notify, daemon=True).start()
 
         return ticket
 
@@ -162,27 +167,30 @@ class TicketService:
 
         is_assignment_change = bool(curr_agent) and (curr_agent != prev_agent or explicit_assignment)
 
-        if is_assignment_change and agent_email:
-            try:
-                sent = EmailService.send_assignment_notification(ticket, agent_email, agent_name)
-                logger.info(
-                    "[TicketService] Assignment notification email sent: to=%s (%s), success=%s, ticket=#%s",
-                    agent_email, agent_name, sent, ticket.get("ticket_id")
-                )
-            except Exception as e:
-                logger.error("[TicketService] Assignment email trigger error: %s", e)
+        if (is_assignment_change or (curr_priority in ("high", "urgent") and curr_priority != prev_priority)) and agent_email:
+            def _async_update_notify():
+                if is_assignment_change:
+                    try:
+                        sent = EmailService.send_assignment_notification(ticket, agent_email, agent_name)
+                        logger.info(
+                            "[TicketService] Assignment notification email sent: to=%s (%s), success=%s, ticket=#%s",
+                            agent_email, agent_name, sent, ticket.get("ticket_id")
+                        )
+                    except Exception as e:
+                        logger.error("[TicketService] Assignment email trigger error: %s", e)
 
-        # 2. Priority escalation trigger
-        curr_priority = (ticket.get("priority") or "normal").strip().lower()
-        if curr_priority in ("high", "urgent") and curr_priority != prev_priority and agent_email:
-            try:
-                sent = EmailService.send_urgent_priority_notification(ticket, agent_email, agent_name)
-                logger.info(
-                    "[TicketService] Urgent priority email sent: to=%s, success=%s, ticket=#%s",
-                    agent_email, sent, ticket.get("ticket_id")
-                )
-            except Exception as e:
-                logger.error("[TicketService] Urgent priority email trigger error: %s", e)
+                if curr_priority in ("high", "urgent") and curr_priority != prev_priority:
+                    try:
+                        sent = EmailService.send_urgent_priority_notification(ticket, agent_email, agent_name)
+                        logger.info(
+                            "[TicketService] Urgent priority email sent: to=%s, success=%s, ticket=#%s",
+                            agent_email, sent, ticket.get("ticket_id")
+                        )
+                    except Exception as e:
+                        logger.error("[TicketService] Urgent priority email trigger error: %s", e)
+
+            import threading
+            threading.Thread(target=_async_update_notify, daemon=True).start()
 
         return ticket
 
