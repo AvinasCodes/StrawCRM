@@ -836,10 +836,9 @@ class FirestoreClient:
 
         # Also delete from Cloud Firestore REST if configured
         try:
-            if FIREBASE_PROJECT_ID:
-                import urllib.request
-                for doc_name in [clean_id, f"%23{clean_id}", str(ticket_id).strip()]:
-                    url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/tickets/{doc_name}"
+            if settings.FIREBASE_PROJECT_ID:
+                for doc_name in [clean_id, f"%23{clean_id}", urllib.parse.quote(str(ticket_id).strip(), safe="")]:
+                    url = f"{FIRESTORE_BASE_URL}/tickets/{doc_name}"
                     req = urllib.request.Request(url, method="DELETE")
                     try:
                         urllib.request.urlopen(req, timeout=2.5)
@@ -864,11 +863,10 @@ class FirestoreClient:
             _save_db(db)
 
         try:
-            if FIREBASE_PROJECT_ID:
-                import urllib.request
+            if settings.FIREBASE_PROJECT_ID:
                 for cid in clean_ids:
                     for doc_name in [cid, f"%23{cid}"]:
-                        url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/tickets/{doc_name}"
+                        url = f"{FIRESTORE_BASE_URL}/tickets/{doc_name}"
                         req = urllib.request.Request(url, method="DELETE")
                         try:
                             urllib.request.urlopen(req, timeout=2.0)
