@@ -130,9 +130,35 @@ export default function Customers({ onNavigate }) {
       (liveTickets) => {
         if (Array.isArray(liveTickets)) {
           setAllTickets(liveTickets);
-          // If all tickets in CRM are deleted, customer accounts list is immediately cleared
           if (liveTickets.length === 0) {
             setCustomers([]);
+          } else {
+            // Guarantee customer accounts display from tickets
+            setCustomers((prev) => {
+              if (prev && prev.length > 0) return prev;
+              const customerMap = {};
+              liveTickets.forEach((t) => {
+                const cid = t.customer_id || '';
+                const email = (t.customer_email || '').toLowerCase().trim();
+                const key = cid || email;
+                if (!key) return;
+                if (!customerMap[key]) {
+                  customerMap[key] = {
+                    customer_id: cid || 'CUST-001',
+                    customer_name: t.customer_name || 'Customer',
+                    customer_email: email,
+                    ticket_count: 0,
+                    latest_ticket_id: t.ticket_id,
+                    latest_ticket_date: t.created_at,
+                    latest_subject: t.subject,
+                    tickets: [],
+                  };
+                }
+                customerMap[key].ticket_count += 1;
+                customerMap[key].tickets.push(t);
+              });
+              return Object.values(customerMap);
+            });
           }
         }
       },

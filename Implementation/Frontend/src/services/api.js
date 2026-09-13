@@ -1,8 +1,15 @@
 import { auth, isConfigured } from '../lib/firebase';
 
 export function resolveApiBaseUrl(raw) {
-  let url = (raw || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').trim();
-  if (url === 'strawcrm-backend' || url === 'https://strawcrm-backend' || url === 'http://strawcrm-backend') {
+  let url = (raw || import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (
+    !url ||
+    url === 'http://localhost:8000' ||
+    url === 'http://127.0.0.1:8000' ||
+    url === 'strawcrm-backend' ||
+    url === 'https://strawcrm-backend' ||
+    url === 'http://strawcrm-backend'
+  ) {
     return 'https://strawcrm-backend.onrender.com';
   }
   if (!url.includes('.') && !url.includes('localhost') && !url.includes('127.0.0.1')) {

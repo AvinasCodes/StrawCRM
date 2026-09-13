@@ -267,9 +267,58 @@ export function generateTicketId(existingTickets = []) {
   return `TKT-${String(nextNum).padStart(3, '0')}`;
 }
 
+const FIRESTORE_PROJECT_ID = 'strawcrm-98ee3';
+const FIRESTORE_REST_URL = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents/tickets`;
+
+function parseFirestoreValue(v) {
+  if (!v) return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return parseInt(v.integerValue, 10);
+  if ('doubleValue' in v) return parseFloat(v.doubleValue);
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('nullValue' in v) return null;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(parseFirestoreValue);
+  if ('mapValue' in v) {
+    const res = {};
+    const fields = v.mapValue.fields || {};
+    for (const [k, val] of Object.entries(fields)) {
+      res[k] = parseFirestoreValue(val);
+    }
+    return res;
+  }
+  return null;
+}
+
+function parseFirestoreDocument(doc) {
+  if (!doc || !doc.fields) return null;
+  const res = {};
+  for (const [k, v] of Object.entries(doc.fields)) {
+    res[k] = parseFirestoreValue(v);
+  }
+  const idFromPath = (doc.name || '').split('/').pop();
+  if (!res.id) res.id = idFromPath;
+  if (!res.ticket_id) res.ticket_id = idFromPath;
+  return res;
+}
+
+export async function fetchFromFirestoreDirect() {
+  try {
+    const res = await fetch(FIRESTORE_REST_URL);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.documents)) {
+        return data.documents.map(parseFirestoreDocument).filter(Boolean);
+      }
+    }
+  } catch (err) {
+    console.debug('[firestoreService] Direct Firestore fetch note:', err?.message);
+  }
+  return [];
+}
+
 /**
- * Background synchronization with FastAPI backend REST API.
- * Ensures tickets created by ANY ID, curl, test suite, or browser are immediately loaded.
+ * Background synchronization with Cloud Firestore REST API and FastAPI backend REST API.
+ * Ensures tickets created anywhere or already stored in Firebase are immediately fetched and loaded.
  */
 let _syncPromise = null;
 
@@ -277,118 +326,136 @@ export async function syncFromBackend() {
   if (_syncPromise) return _syncPromise;
   _syncPromise = (async () => {
     try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(`${API_BASE_URL}/api/tickets`, {
-        headers: { Authorization: headers.Authorization, Accept: 'application/json' },
-      });
-      if (res.ok) {
-        const serverTickets = await res.json();
-        if (Array.isArray(serverTickets)) {
-          if (serverTickets.length === 0) {
-            // If local tickets exist and were created within 60s, keep them
-            const nowMs = Date.now();
-            _localTickets = _localTickets.filter((lt) => {
-              const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
-              return (ageMs < 60000 || lt._isOptimistic) && !_deletedIds.has(lt.ticket_id);
+      // 1. Concurrently query Cloud Firestore REST API AND Backend REST API
+      const [fsTickets, backendTickets] = await Promise.all([
+        fetchFromFirestoreDirect().catch(() => []),
+        (async () => {
+          try {
+            const headers = await getAuthHeaders();
+            const res = await fetch(`${API_BASE_URL}/api/tickets`, {
+              headers: { Authorization: headers.Authorization, Accept: 'application/json' },
             });
-            persistLocalTickets();
-            notifyLocalListeners();
-            return;
+            if (res.ok) return await res.json();
+          } catch {}
+          return [];
+        })(),
+      ]);
+
+      const rawCombined = [
+        ...(Array.isArray(fsTickets) ? fsTickets : []),
+        ...(Array.isArray(backendTickets) ? backendTickets : []),
+      ];
+
+      const serverTicketsMap = new Map();
+      rawCombined.forEach((t) => {
+        if (!t || !t.ticket_id) return;
+        const key = (t.ticket_id || '').toUpperCase();
+        serverTicketsMap.set(key, { ...(serverTicketsMap.get(key) || {}), ...t });
+      });
+      const serverTickets = Array.from(serverTicketsMap.values());
+
+      if (serverTickets.length > 0) {
+        const map = new Map();
+
+        // Index server & Firestore tickets — authoritative source of truth
+        serverTickets.forEach((st) => {
+          const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
+          if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
+          updateTicketSeq(st.ticket_id);
+          const key = (st.ticket_id || '').toUpperCase();
+          const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
+
+          const merged = {
+            ...st,
+            customer_name: (st.customer_name && st.customer_name.trim()) || lt?.customer_name || 'Customer',
+            customer_email: st.customer_email || lt?.customer_email || '',
+            subject: (st.subject && st.subject.trim()) || lt?.subject || 'Support Ticket',
+            description: (st.description && st.description.trim()) || lt?.description || '',
+            customer_id: st.customer_id || lt?.customer_id || 'CUST-001',
+            assigned_to_name: st.assigned_to_name !== undefined ? st.assigned_to_name : (lt?.assigned_to_name || ''),
+            assigned_to_email: st.assigned_to_email !== undefined ? st.assigned_to_email : (lt?.assigned_to_email || ''),
+            assigned_to_id: st.assigned_to_id !== undefined ? st.assigned_to_id : (lt?.assigned_to_id || ''),
+            priority: st.priority || lt?.priority || 'Normal',
+            raised_by_user_id: (st.raised_by_user_id && st.raised_by_user_id !== 'usr_agent_01')
+              ? st.raised_by_user_id
+              : (lt?.raised_by_user_id || st.raised_by_user_id || ''),
+            raised_by_name: st.raised_by_name || lt?.raised_by_name || st.customer_name || 'Customer',
+            created_at: st.created_at || lt?.created_at || new Date().toISOString(),
+            _isOptimistic: false,
+          };
+
+          if (lt) {
+            const ltTime = new Date(lt.updated_at || lt.created_at || 0).getTime();
+            const serverTime = new Date(st.updated_at || st.created_at || 0).getTime();
+            const useServer = serverTime >= ltTime;
+
+            merged.status = useServer ? st.status : (lt.status || st.status);
+            merged.updated_at = useServer ? st.updated_at : (lt.updated_at || st.updated_at);
+            if (!useServer) {
+              if (lt.assigned_to_name !== undefined) merged.assigned_to_name = lt.assigned_to_name;
+              if (lt.assigned_to_email !== undefined) merged.assigned_to_email = lt.assigned_to_email;
+              if (lt.assigned_to_id !== undefined) merged.assigned_to_id = lt.assigned_to_id;
+              if (lt.priority) merged.priority = lt.priority;
+            }
+
+            // Notes: merge server notes with any local offline notes
+            const serverNoteIds = new Set((st.notes || []).map((n) => String(n.id || n.note_text)));
+            const extraLocalNotes = (lt.notes || []).filter((n) => !serverNoteIds.has(String(n.id || n.note_text)));
+            merged.notes = [...(st.notes || []), ...extraLocalNotes];
+
+            merged.attachments = (st.attachments && st.attachments.length > 0)
+              ? st.attachments
+              : (lt.attachments || []);
+          } else {
+            merged.notes = st.notes || [];
+            merged.attachments = st.attachments || [];
           }
-          const map = new Map();
 
-          // 1. Index server tickets — Server is the authoritative source of truth for inquiry details
-          // Skip any tickets that were deleted locally (tombstone guard)
-          serverTickets.forEach((st) => {
-            const stKey = (st.ticket_id || '').replace(/^#/, '').toUpperCase();
-            if (_deletedIds.has(stKey)) return; // don't resurrect locally-deleted tickets
-            updateTicketSeq(st.ticket_id);
-            const key = (st.ticket_id || '').toUpperCase();
-            const lt = _localTickets.find((t) => (t.ticket_id || '').toUpperCase() === key);
+          map.set(key, merged);
+        });
 
-            const merged = {
-              ...st,
-              customer_name: (st.customer_name && st.customer_name.trim()) || lt?.customer_name || 'Customer',
-              customer_email: st.customer_email || lt?.customer_email || '',
-              subject: (st.subject && st.subject.trim()) || lt?.subject || 'Support Ticket',
-              description: (st.description && st.description.trim()) || lt?.description || '',
-              customer_id: st.customer_id || lt?.customer_id || 'CUST-001',
-              assigned_to_name: st.assigned_to_name !== undefined ? st.assigned_to_name : (lt?.assigned_to_name || ''),
-              assigned_to_email: st.assigned_to_email !== undefined ? st.assigned_to_email : (lt?.assigned_to_email || ''),
-              assigned_to_id: st.assigned_to_id !== undefined ? st.assigned_to_id : (lt?.assigned_to_id || ''),
-              priority: st.priority || lt?.priority || 'Normal',
-              raised_by_user_id: (st.raised_by_user_id && st.raised_by_user_id !== 'usr_agent_01')
-                ? st.raised_by_user_id
-                : (lt?.raised_by_user_id || st.raised_by_user_id || ''),
-              raised_by_name: st.raised_by_name || lt?.raised_by_name || st.customer_name || 'Customer',
-              created_at: st.created_at || lt?.created_at || new Date().toISOString(),
-              _isOptimistic: false,
-            };
-
-            if (lt) {
-              const ltTime = new Date(lt.updated_at || lt.created_at || 0).getTime();
-              const serverTime = new Date(st.updated_at || st.created_at || 0).getTime();
-              const useServer = serverTime >= ltTime;
-
-              merged.status = useServer ? st.status : (lt.status || st.status);
-              merged.updated_at = useServer ? st.updated_at : (lt.updated_at || st.updated_at);
-              if (!useServer) {
-                if (lt.assigned_to_name !== undefined) merged.assigned_to_name = lt.assigned_to_name;
-                if (lt.assigned_to_email !== undefined) merged.assigned_to_email = lt.assigned_to_email;
-                if (lt.assigned_to_id !== undefined) merged.assigned_to_id = lt.assigned_to_id;
-                if (lt.priority) merged.priority = lt.priority;
-              }
-
-              // Notes: merge server notes with any local offline notes
-              const serverNoteIds = new Set((st.notes || []).map((n) => String(n.id || n.note_text)));
-              const extraLocalNotes = (lt.notes || []).filter((n) => !serverNoteIds.has(String(n.id || n.note_text)));
-              merged.notes = [...(st.notes || []), ...extraLocalNotes];
-
-              merged.attachments = (st.attachments && st.attachments.length > 0)
-                ? st.attachments
-                : (lt.attachments || []);
-            } else {
-              merged.notes = st.notes || [];
-              merged.attachments = st.attachments || [];
+        // Only keep local tickets that haven't arrived from server yet if they were created offline by THIS client within the last 60s or marked optimistic
+        const nowMs = Date.now();
+        _localTickets.forEach((lt) => {
+          const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
+          if (_deletedIds.has(ltKey)) return;
+          if (!map.has(ltKey)) {
+            const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
+            if (ageMs < 60000 || lt._isOptimistic) {
+              map.set(ltKey, lt);
             }
+          }
+        });
 
-            map.set(key, merged);
-          });
+        // Filter out locally-deleted tickets from the merged result
+        _localTickets = Array.from(map.values()).filter(
+          (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
+        );
+        _localTickets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        persistLocalTickets();
+        notifyLocalListeners();
 
-          // Only keep local tickets that haven't arrived from server yet if they were created offline by THIS client within the last 60s or marked optimistic
-          const nowMs = Date.now();
-          _localTickets.forEach((lt) => {
-            const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
-            if (_deletedIds.has(ltKey)) return;
-            if (!map.has(ltKey)) {
-              const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
-              if (ageMs < 60000 || lt._isOptimistic) {
-                map.set(ltKey, lt);
-              }
-            }
-          });
-
-          // Filter out locally-deleted tickets from the merged result
-          _localTickets = Array.from(map.values()).filter(
-            (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
-          );
-          _localTickets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-          persistLocalTickets();
-          notifyLocalListeners();
-
-          // Notify any active detail listeners of updated ticket state
-          _detailListeners.forEach((cbs, key) => {
-            const t = _localTickets.find((item) => (item.ticket_id || '').toUpperCase() === key);
-            if (t) {
-              cbs.forEach((cb) => {
-                try { cb({ ...t }); } catch { }
-              });
-            }
-          });
-        }
+        // Notify any active detail listeners of updated ticket state
+        _detailListeners.forEach((cbs, key) => {
+          const t = _localTickets.find((item) => (item.ticket_id || '').toUpperCase() === key);
+          if (t) {
+            cbs.forEach((cb) => {
+              try { cb({ ...t }); } catch { }
+            });
+          }
+        });
+      } else if (rawCombined.length === 0 && backendTickets && Array.isArray(backendTickets)) {
+        // Both backend and Firestore confirm 0 tickets
+        const nowMs = Date.now();
+        _localTickets = _localTickets.filter((lt) => {
+          const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
+          return (ageMs < 60000 || lt._isOptimistic) && !_deletedIds.has(lt.ticket_id);
+        });
+        persistLocalTickets();
+        notifyLocalListeners();
       }
     } catch (err) {
-      // Backend offline or unreachable, local store continues safely
+      console.debug('[StrawCRM] syncFromBackend note:', err?.message);
     } finally {
       _syncPromise = null;
     }
@@ -884,6 +951,33 @@ export function subscribeTicketDetail(ticketId, onUpdate, onError) {
       })
       .catch(() => { });
   });
+
+  // Query Firestore REST API directly in case backend or WebChannel onSnapshot is delayed
+  fetch(`https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/(default)/documents/tickets/${encodeURIComponent(cleanId)}`)
+    .then((res) => (res.ok ? res.json() : null))
+    .then((docData) => {
+      const parsed = parseFirestoreDocument(docData);
+      if (parsed && parsed.ticket_id) {
+        const idx = _localTickets.findIndex(
+          (t) => (t.ticket_id || '').toUpperCase() === parsed.ticket_id.toUpperCase()
+        );
+        const fullMerged = {
+          ...(idx !== -1 ? _localTickets[idx] : {}),
+          ...parsed,
+          notes: (parsed.notes && parsed.notes.length > 0)
+            ? parsed.notes
+            : (idx !== -1 ? _localTickets[idx].notes || [] : []),
+        };
+        if (idx !== -1) {
+          _localTickets[idx] = fullMerged;
+        } else {
+          _localTickets.unshift(fullMerged);
+        }
+        notifyDetailListeners(upperCleanId, fullMerged);
+        onUpdate(fullMerged);
+      }
+    })
+    .catch(() => {});
 
   if (!db) {
     return () => {
