@@ -225,24 +225,35 @@ class EmailService:
             )
             return True
 
-        try:
-            if smtp_port == 465:
-                with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15) as server:
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(smtp_user, [to_email], msg.as_string())
-            else:
-                with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-                    server.ehlo()
-                    server.starttls()
-                    server.ehlo()
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(smtp_user, [to_email], msg.as_string())
+        # Smart Dual-Port Cloud Delivery: Try SSL (465) and STARTTLS (587)
+        # Cloud platforms (like Render/AWS) frequently block or throttle port 587 while port 465 succeeds.
+        ports_to_try = [465, 587] if smtp_port == 465 else [smtp_port, 465 if smtp_port == 587 else 587]
+        # Remove duplicate port entries while preserving order
+        ports_to_try = list(dict.fromkeys(ports_to_try))
 
-            logger.info("[EmailService] Live email successfully dispatched to %s via SMTP (%s)", to_email, smtp_host)
-            return True
-        except Exception as err:
-            logger.error("[EmailService] Failed to send email via SMTP to %s: %s", to_email, err)
-            return False
+        last_error = None
+        for port in ports_to_try:
+            try:
+                if port == 465:
+                    with smtplib.SMTP_SSL(smtp_host, 465, timeout=10) as server:
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(smtp_user, [to_email], msg.as_string())
+                else:
+                    with smtplib.SMTP(smtp_host, port, timeout=10) as server:
+                        server.ehlo()
+                        server.starttls()
+                        server.ehlo()
+                        server.login(smtp_user, smtp_pass)
+                        server.sendmail(smtp_user, [to_email], msg.as_string())
+
+                logger.info("[EmailService] Live email successfully dispatched to %s via SMTP (%s:%d)", to_email, smtp_host, port)
+                return True
+            except Exception as err:
+                last_error = err
+                logger.warning("[EmailService] Attempt on %s:%d failed: %s. Trying fallback port...", smtp_host, port, err)
+
+        logger.error("[EmailService] All SMTP delivery attempts failed for %s. Last error: %s", to_email, last_error)
+        return False
 
 
     @classmethod

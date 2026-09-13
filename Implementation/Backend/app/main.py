@@ -88,17 +88,62 @@ async def email_health():
 
 @app.post("/api/health/email/test", tags=["Health"])
 async def test_email_dispatch(to: str = "avinasharyan481@gmail.com"):
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.utils import formataddr
     from app.services.email_service import EmailService
+
+    smtp_user = os.getenv("SMTP_USER") or settings.SMTP_USER
+    smtp_pass = os.getenv("SMTP_PASSWORD") or settings.SMTP_PASSWORD
+    smtp_host = os.getenv("SMTP_HOST") or settings.SMTP_HOST
+
+    diagnostics = {}
+
+    # Test Port 465 (SSL)
+    try:
+        with smtplib.SMTP_SSL(smtp_host, 465, timeout=10) as s:
+            s.login(smtp_user, smtp_pass)
+            msg = MIMEMultipart()
+            msg["Subject"] = "[StrawCRM] Direct SSL Port 465 Test"
+            msg["From"] = formataddr(("StrawCRM Support", smtp_user))
+            msg["To"] = to
+            msg.attach(MIMEText("Testing live SSL delivery on port 465.", "plain"))
+            s.sendmail(smtp_user, [to], msg.as_string())
+        diagnostics["port_465_ssl"] = "SUCCESS"
+    except Exception as e:
+        diagnostics["port_465_ssl"] = f"ERROR: {type(e).__name__} - {str(e)}"
+
+    # Test Port 587 (STARTTLS)
+    try:
+        with smtplib.SMTP(smtp_host, 587, timeout=10) as s:
+            s.ehlo()
+            s.starttls()
+            s.ehlo()
+            s.login(smtp_user, smtp_pass)
+            msg = MIMEMultipart()
+            msg["Subject"] = "[StrawCRM] STARTTLS Port 587 Test"
+            msg["From"] = formataddr(("StrawCRM Support", smtp_user))
+            msg["To"] = to
+            msg.attach(MIMEText("Testing live STARTTLS delivery on port 587.", "plain"))
+            s.sendmail(smtp_user, [to], msg.as_string())
+        diagnostics["port_587_starttls"] = "SUCCESS"
+    except Exception as e:
+        diagnostics["port_587_starttls"] = f"ERROR: {type(e).__name__} - {str(e)}"
+
     ticket = {
         "ticket_id": "TKT-TEST",
-        "subject": "Render Live SMTP Test",
+        "subject": "Render Live SMTP Test via EmailService",
         "customer_name": "Test Customer",
         "priority": "Normal",
         "status": "Open",
-        "description": "Testing live email delivery from Render deployment",
+        "description": "Testing live email delivery from Render deployment using EmailService",
     }
-    success = EmailService.send_assignment_notification(ticket, to, "Superman")
-    return {"success": success, "recipient": to}
+    service_success = EmailService.send_assignment_notification(ticket, to, "Superman")
+    diagnostics["email_service_result"] = service_success
+    diagnostics["recipient"] = to
+
+    return diagnostics
 
 
 # Include Application Routers
