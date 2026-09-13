@@ -74,6 +74,33 @@ async def health_check():
     }
 
 
+@app.get("/api/health/email", tags=["Health"])
+async def email_health():
+    smtp_user = os.getenv("SMTP_USER") or settings.SMTP_USER or ""
+    smtp_pass = os.getenv("SMTP_PASSWORD") or settings.SMTP_PASSWORD or ""
+    return {
+        "configured": bool(smtp_user and smtp_pass),
+        "user": smtp_user[:4] + "***@" + smtp_user.split("@")[-1] if "@" in smtp_user else "none",
+        "host": settings.SMTP_HOST,
+        "port": settings.SMTP_PORT,
+    }
+
+
+@app.post("/api/health/email/test", tags=["Health"])
+async def test_email_dispatch(to: str = "avinasharyan481@gmail.com"):
+    from app.services.email_service import EmailService
+    ticket = {
+        "ticket_id": "TKT-TEST",
+        "subject": "Render Live SMTP Test",
+        "customer_name": "Test Customer",
+        "priority": "Normal",
+        "status": "Open",
+        "description": "Testing live email delivery from Render deployment",
+    }
+    success = EmailService.send_assignment_notification(ticket, to, "Superman")
+    return {"success": success, "recipient": to}
+
+
 # Include Application Routers
 app.include_router(auth.router)
 app.include_router(tickets.router)

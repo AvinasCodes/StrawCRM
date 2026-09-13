@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     # Email & SMTP Configuration (Gmail SMTP / Standard Library smtplib)
     SMTP_HOST: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     SMTP_PORT: int = Field(default=587, alias="SMTP_PORT")
-    SMTP_USER: str = Field(default="", alias="SMTP_USER")
-    SMTP_PASSWORD: str = Field(default="", alias="SMTP_PASSWORD")
+    SMTP_USER: str = Field(default="avinash48as@gmail.com", alias="SMTP_USER")
+    SMTP_PASSWORD: str = Field(default="REDACTED_SMTP_PASSWORD", alias="SMTP_PASSWORD")
     SMTP_FROM_NAME: str = Field(default="StrawCRM Notifications", alias="SMTP_FROM_NAME")
 
     # Security & CORS
