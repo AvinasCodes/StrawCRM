@@ -732,7 +732,7 @@ export default function CreateTicket({ onNavigate }) {
                           <option value="">Unassigned (Shared Pool)</option>
                           {activeAgents.map((agent) => (
                             <option key={agent.id} value={agent.id}>
-                              {agent.name} {agent.isCurrentUser ? '(You)' : ''} — {agent.status}
+                              {agent.name} ({agent.email}) {agent.isCurrentUser ? '(You)' : ''} — {agent.status}
                             </option>
                           ))}
                         </select>

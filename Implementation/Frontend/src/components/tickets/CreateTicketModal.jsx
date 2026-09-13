@@ -474,14 +474,14 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
                 >
                   {defaultAgent && (
                     <option value={defaultAgent.id}>
-                      ⚡ {defaultAgent.name} (Primary Agent &bull; {defaultAgent.status})
+                      ⚡ {defaultAgent.name} ({defaultAgent.email}) (Primary Agent &bull; {defaultAgent.status})
                     </option>
                   )}
                   {activeAgents
                     .filter((ag) => ag.id !== defaultAgent?.id)
                     .map((ag) => (
                       <option key={ag.id} value={ag.id}>
-                        {ag.name} ({ag.status})
+                        {ag.name} ({ag.email}) — {ag.status}
                       </option>
                     ))}
                 </select>

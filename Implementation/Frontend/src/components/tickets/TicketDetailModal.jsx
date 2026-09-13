@@ -603,8 +603,8 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
                       ? 'unassigned'
                       : (getActiveAgents(user).find(
                         (a) =>
-                          (ticket.assigned_to_id && a.id === ticket.assigned_to_id) ||
                           (ticket.assigned_to_email && a.email?.toLowerCase() === ticket.assigned_to_email?.toLowerCase()) ||
+                          (ticket.assigned_to_id && a.id === ticket.assigned_to_id) ||
                           (ticket.assigned_to_name && a.name?.toLowerCase() === ticket.assigned_to_name?.toLowerCase())
                       )?.id || 'unassigned')
                   }
@@ -618,12 +618,12 @@ export default function TicketDetailModal({ ticketId, isOpen, onClose, onUpdated
                   }`}
                   title="Assign agent"
                 >
-                  <option value="unassigned">👥 Team Pool</option>
+                  <option value="unassigned">👥 Team Pool (Unassigned)</option>
                   {getActiveAgents(user).map((ag) => {
                     const isMe = user && (user.id === ag.id || user.email?.toLowerCase() === ag.email?.toLowerCase());
                     return (
                       <option key={ag.id} value={ag.id}>
-                        👤 {ag.name} {isMe ? '(You)' : ''}
+                        👤 {ag.name} ({ag.email}) {isMe ? '— You' : ''}
                       </option>
                     );
                   })}

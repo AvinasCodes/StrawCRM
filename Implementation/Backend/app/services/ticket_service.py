@@ -37,12 +37,21 @@ class TicketService:
 
                 if agent_id and u_id and u_id.lower() == agent_id.lower() and EmailService.is_valid_email(u_email):
                     return u_email, u_name or agent_name
-                if agent_name and u_name and u_name.lower() == agent_name.lower() and EmailService.is_valid_email(u_email):
-                    return u_email, u_name
                 if agent_id:
                     clean_id_key = agent_id.lower().replace("agent_", "")
                     if clean_id_key and clean_id_key in u_email.lower() and EmailService.is_valid_email(u_email):
                         return u_email, u_name or agent_name
+
+            # Name-only match: Only resolve if there is a unique matching user with that name
+            if agent_name:
+                name_matches = [
+                    u for u in users_map.values()
+                    if (u.get("name") or "").strip().lower() == agent_name.lower()
+                    and EmailService.is_valid_email((u.get("email") or "").strip())
+                ]
+                if len(name_matches) == 1:
+                    matched_u = name_matches[0]
+                    return (matched_u.get("email") or "").strip(), (matched_u.get("name") or agent_name).strip()
         except Exception as e:
             logger.warning("[TicketService] Failed to look up agent email in users store: %s", e)
 
@@ -54,42 +63,6 @@ class TicketService:
         
         # Check if created with an assigned agent -> notify agent
         agent_email, agent_name = TicketService.resolve_agent_email(ticket)
-
-        # If ticket was created unassigned, auto-assign to primary agent/admin so it is never orphaned
-        if not agent_email:
-            fallback_agent = None
-            try:
-                from app.routes.users import _ensure_users_db
-                users_map = _ensure_users_db()
-                for u in users_map.values():
-                    u_email = (u.get("email") or "").strip()
-                    if u_email and EmailService.is_valid_email(u_email):
-                        fallback_agent = u
-                        break
-            except Exception as e:
-                logger.warning("[TicketService] Auto-assign agent lookup error: %s", e)
-
-            if not fallback_agent and settings.SMTP_USER and EmailService.is_valid_email(settings.SMTP_USER):
-                fallback_agent = {
-                    "email": settings.SMTP_USER,
-                    "name": settings.SMTP_FROM_NAME or "Lead Administrator",
-                    "id": "agent_admin",
-                }
-
-            if fallback_agent:
-                agent_email = fallback_agent["email"]
-                agent_name = fallback_agent.get("name", "Support Agent")
-                agent_id = fallback_agent.get("id", "")
-                ticket = FirestoreClient.update_ticket(
-                    ticket["ticket_id"],
-                    assigned_to_name=agent_name,
-                    assigned_to_email=agent_email,
-                    assigned_to_id=agent_id,
-                )
-                logger.info(
-                    "[TicketService] Ticket #%s auto-assigned to %s <%s>",
-                    ticket.get("ticket_id"), agent_name, agent_email
-                )
 
         if agent_email:
             try:

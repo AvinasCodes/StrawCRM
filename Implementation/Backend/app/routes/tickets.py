@@ -85,11 +85,11 @@ async def get_ticket_details(
 async def update_ticket(
     ticket_id: str,
     payload: TicketUpdate,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Update ticket status and optionally append an internal note.
-    Protected endpoint: requires valid Firebase JWT Bearer token.
+    Protected endpoint: accepts valid Firebase JWT or authenticated session.
     """
     return TicketService.update_ticket(ticket_id, payload)
 
@@ -99,7 +99,7 @@ async def add_note(
     ticket_id: str,
     payload: NoteCreate,
     request: Request,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Dedicated endpoint to add an internal note to a ticket.

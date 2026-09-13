@@ -6,6 +6,7 @@ import copy
 import threading
 import urllib.request
 import urllib.error
+import urllib.parse
 from typing import Optional, Dict, Any, List, Union
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,16 +50,47 @@ def _firestore_doc_to_dict(doc: dict) -> dict:
     return {k: _value(fv) for k, fv in fields.items()}
 
 
+def _sync_patch_firestore(ticket_id: str, fields: Dict[str, Any]) -> None:
+    """Sync ticket mutations to Cloud Firestore REST API in background so frontend live listeners receive it."""
+    def _do_patch():
+        try:
+            clean_id = str(ticket_id).strip().lstrip("#").upper()
+            fs_fields = {}
+            query_params = []
+            for k, v in fields.items():
+                if v is None:
+                    continue
+                query_params.append(f"updateMask.fieldPaths={k}")
+                if isinstance(v, str):
+                    fs_fields[k] = {"stringValue": v}
+                elif isinstance(v, bool):
+                    fs_fields[k] = {"booleanValue": v}
+                elif isinstance(v, int):
+                    fs_fields[k] = {"integerValue": str(v)}
+                elif isinstance(v, float):
+                    fs_fields[k] = {"doubleValue": v}
+            if not query_params:
+                return
+            url = f"{FIRESTORE_BASE_URL}/tickets/{urllib.parse.quote(clean_id, safe='')}?" + "&".join(query_params)
+            payload = json.dumps({"fields": fs_fields}).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, method="PATCH", headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                pass
+        except Exception as e:
+            logger.debug("Cloud Firestore patch sync error for %s: %s", ticket_id, e)
+
+    threading.Thread(target=_do_patch, daemon=True).start()
+
+
 def _bootstrap_from_firestore() -> None:
     """
-    On startup, fetch all tickets from Cloud Firestore REST API and seed
-    the local JSON database if it is empty (e.g. after a Render restart).
+    On startup, fetch all tickets from Cloud Firestore REST API and seed / merge
+    with the local JSON database so no tickets created via frontend are missing.
     Runs in a background thread so it never blocks server startup.
     """
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Check if local DB already has data
         existing: Dict[str, Any] = {}
         if DB_FILE.exists():
             try:
@@ -70,14 +102,9 @@ def _bootstrap_from_firestore() -> None:
             except Exception:
                 pass
 
-        # Only bootstrap if local DB is empty
-        if existing:
-            logger.info("[Bootstrap] Local DB has %d tickets — skipping Firestore fetch.", len(existing))
-            return
+        logger.info("[Bootstrap] Fetching tickets from Cloud Firestore (existing local: %d)...", len(existing))
 
-        logger.info("[Bootstrap] Local DB is empty — fetching tickets from Cloud Firestore...")
-
-        url = f"{FIRESTORE_BASE_URL}/tickets"
+        url = f"{FIRESTORE_BASE_URL}/tickets?pageSize=300"
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=15) as resp:
             body = json.loads(resp.read().decode("utf-8"))
@@ -87,41 +114,40 @@ def _bootstrap_from_firestore() -> None:
             logger.info("[Bootstrap] Firestore returned 0 ticket documents.")
             return
 
-        merged: Dict[str, Any] = {}
+        merged_count = 0
         for doc in docs:
             try:
                 ticket = _firestore_doc_to_dict(doc)
-                tid = str(ticket.get("ticket_id", "")).strip().upper()
+                tid = str(ticket.get("ticket_id", "")).strip().lstrip("#").upper()
                 if not tid:
-                    # fall back to doc name segment
-                    tid = doc.get("name", "").rsplit("/", 1)[-1].upper()
+                    tid = doc.get("name", "").rsplit("/", 1)[-1].lstrip("#").upper()
                 if tid:
-                    # Ensure required list fields exist
                     if not isinstance(ticket.get("notes"), list):
                         ticket["notes"] = []
                     if not isinstance(ticket.get("attachments"), list):
                         ticket["attachments"] = []
-                    merged[tid] = ticket
+                    # Merge into existing map
+                    if tid not in existing:
+                        existing[tid] = ticket
+                    else:
+                        existing[tid] = {**existing[tid], **ticket}
+                    merged_count += 1
             except Exception as e:
                 logger.warning("[Bootstrap] Skipping malformed Firestore doc: %s", e)
 
-        if merged:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            content = json.dumps(merged, indent=2, ensure_ascii=False)
+        if merged_count > 0:
+            content = json.dumps(existing, indent=2, ensure_ascii=False)
             DB_FILE.write_text(content + "\n", encoding="utf-8")
-            logger.info("[Bootstrap] Seeded local DB with %d tickets from Firestore.", len(merged))
+            logger.info("[Bootstrap] Synced %d tickets from Cloud Firestore (total local: %d).", merged_count, len(existing))
 
-            # Also rebuild customers DB from these tickets
             try:
                 global _DB_CACHE, _DB_MTIME
-                _DB_CACHE = merged
+                _DB_CACHE = existing
                 _DB_MTIME = os.path.getmtime(DB_FILE)
-                for t in merged.values():
+                for t in existing.values():
                     _upsert_customer(t)
             except Exception as e:
                 logger.warning("[Bootstrap] Customer DB rebuild warning: %s", e)
-        else:
-            logger.info("[Bootstrap] No valid tickets parsed from Firestore.")
 
     except urllib.error.URLError as e:
         logger.warning("[Bootstrap] Could not reach Firestore (network/offline?): %s", e)
@@ -315,6 +341,33 @@ class FirestoreClient:
             k_norm = str(k).strip().lstrip("#").upper()
             if k_norm == clean_id:
                 return copy.deepcopy(t)
+
+        # Fallback: Query Cloud Firestore REST API directly if not found in local db
+        try:
+            for candidate_id in (clean_id, f"#{clean_id}", raw_id):
+                doc_url = f"{FIRESTORE_BASE_URL}/tickets/{urllib.parse.quote(candidate_id, safe='')}"
+                req = urllib.request.Request(doc_url, headers={"Accept": "application/json"})
+                try:
+                    with urllib.request.urlopen(req, timeout=6) as resp:
+                        doc = json.loads(resp.read().decode("utf-8"))
+                        ticket = _firestore_doc_to_dict(doc)
+                        if ticket:
+                            tid = str(ticket.get("ticket_id") or candidate_id).strip().lstrip("#").upper()
+                            if not tid.startswith("TKT-") and candidate_id.startswith("TKT-"):
+                                tid = candidate_id
+                            ticket["ticket_id"] = tid
+                            if not isinstance(ticket.get("notes"), list):
+                                ticket["notes"] = []
+                            if not isinstance(ticket.get("attachments"), list):
+                                ticket["attachments"] = []
+                            db[tid] = ticket
+                            _save_db(db)
+                            return copy.deepcopy(ticket)
+                except urllib.error.HTTPError as he:
+                    if he.code == 404:
+                        continue
+        except Exception as e:
+            logger.debug("Error querying Cloud Firestore for ticket %s: %s", ticket_id, e)
 
         # If clean_id specifically begins with TKT, it's a ticket ID search that failed
         if clean_id.startswith("TKT"):
@@ -635,9 +688,11 @@ class FirestoreClient:
             "notes": payload.get("notes") or [],
         }
 
-        # ── Idempotency guard 1: ticket_id already exists → return existing ──
+        # ── Idempotency guard 1: ticket_id already exists → update with new payload ──
         if ticket_id in db:
-            logger.debug("Ticket %s already exists, returning existing record.", ticket_id)
+            logger.debug("Ticket %s already exists, updating with incoming payload.", ticket_id)
+            db[ticket_id].update({k: v for k, v in ticket.items() if v is not None and v != ""})
+            _save_db(db)
             return db[ticket_id]
 
         # ── Idempotency guard 2: same subject + email created within last 60s ──
@@ -755,6 +810,14 @@ class FirestoreClient:
 
         db[ticket["ticket_id"]] = ticket
         _save_db(db)
+        _sync_patch_firestore(ticket["ticket_id"], {
+            "status": ticket.get("status"),
+            "assigned_to_name": ticket.get("assigned_to_name"),
+            "assigned_to_email": ticket.get("assigned_to_email"),
+            "assigned_to_id": ticket.get("assigned_to_id"),
+            "priority": ticket.get("priority"),
+            "updated_at": now_iso,
+        })
         return ticket
 
     @staticmethod
