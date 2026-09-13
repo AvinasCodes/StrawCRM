@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = Field(default="", alias="GEMINI_API_KEY")
 
     # Email & SMTP Configuration (Gmail SMTP / Standard Library smtplib)
+    RESEND_API_KEY: str = Field(default="REDACTED_RESEND_API_KEY", alias="RESEND_API_KEY")
+    RESEND_FROM: str = Field(default="StrawCRM <onboarding@resend.dev>", alias="RESEND_FROM")
     SMTP_HOST: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     SMTP_PORT: int = Field(default=587, alias="SMTP_PORT")
     SMTP_USER: str = Field(default="avinash48as@gmail.com", alias="SMTP_USER")

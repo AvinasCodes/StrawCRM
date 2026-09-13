@@ -24,6 +24,10 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         value: REDACTED_GEMINI_BACKEND_KEY
+      - key: RESEND_API_KEY
+        value: REDACTED_RESEND_API_KEY
+      - key: RESEND_FROM
+        value: StrawCRM <onboarding@resend.dev>
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT

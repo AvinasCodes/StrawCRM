@@ -181,6 +181,71 @@ class EmailService:
 </html>"""
 
     @classmethod
+    def _send_resend(cls, to_email: str, subject: str, body_text: str, body_html: str) -> bool:
+        resend_key = (os.getenv("RESEND_API_KEY") or getattr(settings, "RESEND_API_KEY", "") or "").strip()
+        if not resend_key:
+            return False
+
+        from_addr = (os.getenv("RESEND_FROM") or getattr(settings, "RESEND_FROM", "") or "StrawCRM <onboarding@resend.dev>").strip()
+
+        payload = {
+            "from": from_addr,
+            "to": [to_email],
+            "subject": subject,
+            "html": body_html,
+            "text": body_text,
+        }
+
+        import urllib.request
+        import urllib.error
+        import json
+
+        def _do_post(post_data):
+            req = urllib.request.Request(
+                "https://api.resend.com/emails",
+                data=json.dumps(post_data).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {resend_key}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "resend-python/2.6.0",
+                },
+                method="POST",
+            )
+            return urllib.request.urlopen(req, timeout=10)
+
+        try:
+            with _do_post(payload) as resp:
+                if resp.status in (200, 201):
+                    res_body = json.loads(resp.read().decode("utf-8"))
+                    logger.info("[EmailService (Resend)] Successfully dispatched email to %s (id: %s)", to_email, res_body.get("id"))
+                    return True
+        except urllib.error.HTTPError as err:
+            err_text = err.read().decode("utf-8", errors="replace")
+            logger.warning("[EmailService (Resend)] HTTP error %s for %s: %s", err.code, to_email, err_text)
+
+            # Auto-handle Resend Sandbox restriction:
+            # If domain isn't verified yet, Resend allows testing only to verified account owner (avinash48as@gmail.com).
+            if "validation_error" in err_text and ("testing emails to your own email address" in err_text or err.code == 403):
+                fallback_owner = "avinash48as@gmail.com"
+                if to_email.lower() != fallback_owner.lower():
+                    logger.info("[EmailService (Resend)] Sandbox mode active: Routing copy to verified owner %s (intended for: %s)", fallback_owner, to_email)
+                    sandbox_payload = dict(payload)
+                    sandbox_payload["to"] = [fallback_owner]
+                    sandbox_payload["subject"] = f"[For {to_email}] {subject}"
+                    try:
+                        with _do_post(sandbox_payload) as fwd_resp:
+                            if fwd_resp.status in (200, 201):
+                                fwd_body = json.loads(fwd_resp.read().decode("utf-8"))
+                                logger.info("[EmailService (Resend)] Successfully delivered sandbox email to %s (id: %s)", fallback_owner, fwd_body.get("id"))
+                                return True
+                    except Exception as fwd_e:
+                        logger.error("[EmailService (Resend)] Sandbox forward error: %s", fwd_e)
+        except Exception as e:
+            logger.error("[EmailService (Resend)] Network dispatch error: %s", e)
+
+        return False
+
+    @classmethod
     def send_email(
         cls,
         to_email: str,
@@ -189,12 +254,15 @@ class EmailService:
         body_html: str,
     ) -> bool:
         """
-        Sends an email using Python's standard library smtplib over TLS (Port 587) or SSL (Port 465).
-        Falls back gracefully with logging if SMTP credentials are dummy/unconfigured in local dev.
+        Sends an email via Resend HTTPS REST API (Cloud primary) or standard smtplib (fallback).
         """
         if not cls.is_valid_email(to_email):
             logger.warning("[EmailService] Invalid recipient email address: '%s'", to_email)
             return False
+
+        # 1. Primary Cloud Provider: Resend HTTPS REST API (Port 443 - never blocked by Render)
+        if cls._send_resend(to_email, subject, body_text, body_html):
+            return True
 
         smtp_host = (os.getenv("SMTP_HOST") or settings.SMTP_HOST or "smtp.gmail.com").strip()
         smtp_port = int(os.getenv("SMTP_PORT") or settings.SMTP_PORT or 587)
