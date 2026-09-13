@@ -27,10 +27,7 @@ import {
   SYNC_STATUS,
   SYNC_TYPE,
 } from './db';
-import { getAuthToken } from '../services/api';
-
-const _rawApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const API_BASE_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
+import { getAuthToken, API_BASE_URL } from '../services/api';
 const MAX_RETRIES = 3;
 
 // ─────────────────────────────────────────────────────────────────────────────

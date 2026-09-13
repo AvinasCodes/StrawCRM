@@ -22,8 +22,7 @@ import {
   removeTicketAttachment,
 } from '../../services/firestoreService';
 
-const _rawApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const API_BASE_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
+import { API_BASE_URL } from '../../services/api';
 
 export default function TicketAttachments({
   ticketId,

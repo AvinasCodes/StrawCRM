@@ -23,9 +23,8 @@ import { db, auth, isConfigured } from '../lib/firebase';
 const TICKETS_COLLECTION = 'tickets';
 const NOTES_SUBCOLLECTION = 'notes';
 const CUSTOMERS_COLLECTION = 'customers';
+import { API_BASE_URL } from './api';
 
-const _rawApiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const API_BASE_URL = _rawApiUrl.startsWith('http') ? _rawApiUrl : `https://${_rawApiUrl}`;
 
 async function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
