@@ -166,6 +166,7 @@ class TicketService:
         ) and bool(curr_agent)
 
         is_assignment_change = bool(curr_agent) and (curr_agent != prev_agent or explicit_assignment)
+        curr_priority = (ticket.get("priority") or "normal").strip().lower()
 
         if (is_assignment_change or (curr_priority in ("high", "urgent") and curr_priority != prev_priority)) and agent_email:
             def _async_update_notify():
