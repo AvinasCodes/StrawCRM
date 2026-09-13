@@ -14,20 +14,14 @@ import { getActiveAgents } from '../../services/teamAgents';
 import { dispatchAssignmentNotification } from '../../services/notificationService';
 
 
+import { cleanMarkdownFromText } from '../../pages/CreateTicket';
+
+
 const PRIORITIES = [
   { id: 'Low', label: 'Low', dot: 'bg-emerald-500' },
   { id: 'Medium', label: 'Med', dot: 'bg-amber-500' },
   { id: 'High', label: 'High', dot: 'bg-orange-500' },
   { id: 'Urgent', label: 'Urgent', dot: 'bg-rose-500' },
-];
-
-const DEFAULT_CATEGORIES = [
-  'Technical Support',
-  'Billing & Payments',
-  'Account Access',
-  'Bug Report',
-  'Feature Request',
-  'General Inquiry',
 ];
 
 export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
@@ -50,29 +44,65 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
     return activeAgents.find((a) => a.id === assignedAgentId) || defaultAgent || null;
   }, [activeAgents, assignedAgentId, defaultAgent]);
 
-  // Dynamic Existing Categories fetched from live tickets + standard categories
-  const [existingCategories, setExistingCategories] = useState(DEFAULT_CATEGORIES);
+  // Dynamic Existing Categories fetched ONLY from live tickets (no dummy categories)
+  const [existingCategories, setExistingCategories] = useState([]);
   const [categorySuggestions, setCategorySuggestions] = useState([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const categoryDropdownRef = useRef(null);
 
-  // Subscribe to live tickets to dynamically extract all existing categories
+  // Subscribe to live tickets to dynamically extract all existing categories from real database
   useEffect(() => {
     const unsubscribeTickets = subscribeTickets(
       {},
       (liveTickets) => {
         if (Array.isArray(liveTickets) && liveTickets.length > 0) {
-          const liveCats = liveTickets
-            .map((t) => (t.category || '').trim())
-            .filter(Boolean);
-          const combined = Array.from(new Set([...DEFAULT_CATEGORIES, ...liveCats])).sort();
-          setExistingCategories(combined);
+          const liveCats = Array.from(
+            new Set(
+              liveTickets
+                .map((t) => (t.category || '').trim())
+                .filter(Boolean)
+            )
+          ).sort();
+          setExistingCategories(liveCats);
         }
       },
       () => { }
     );
     return () => unsubscribeTickets();
   }, []);
+
+  // Auto-recommend category based on subject & description against real existing categories
+  useEffect(() => {
+    if (category) return;
+    if (!existingCategories.length) return;
+
+    const query = `${subject} ${description}`.toLowerCase();
+    if (!query.trim()) return;
+
+    const directMatch = existingCategories.find((cat) =>
+      query.includes(cat.toLowerCase())
+    );
+    if (directMatch) {
+      setCategory(directMatch);
+      return;
+    }
+
+    for (const cat of existingCategories) {
+      const catLower = cat.toLowerCase();
+      if (
+        catLower.includes('mobile') &&
+        (query.includes('whatsapp') || query.includes('phone') || query.includes('app') || query.includes('android') || query.includes('ios'))
+      ) {
+        setCategory(cat);
+        return;
+      }
+      const words = catLower.split(/\s+/).filter((w) => w.length > 3);
+      if (words.some((w) => query.includes(w))) {
+        setCategory(cat);
+        return;
+      }
+    }
+  }, [subject, description, existingCategories, category]);
 
   // Dismiss category dropdown on click outside
   useEffect(() => {
@@ -90,7 +120,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
     setCategory(val);
     if (!val.trim()) {
       setCategorySuggestions(existingCategories);
-      setShowCategorySuggestions(true);
+      setShowCategorySuggestions(existingCategories.length > 0);
       return;
     }
     const q = val.toLowerCase().trim();
@@ -98,7 +128,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       cat.toLowerCase().includes(q)
     );
     setCategorySuggestions(matches);
-    setShowCategorySuggestions(true);
+    setShowCategorySuggestions(matches.length > 0);
   };
 
   const handleCategoryFocus = () => {
@@ -107,7 +137,20 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
       ? existingCategories.filter((cat) => cat.toLowerCase().includes(q))
       : existingCategories;
     setCategorySuggestions(matches);
-    setShowCategorySuggestions(true);
+    setShowCategorySuggestions(matches.length > 0);
+  };
+
+  const handleDescriptionPaste = (e) => {
+    const pastedText = e.clipboardData?.getData('text');
+    if (pastedText && (/^#{1,6}\s/m.test(pastedText) || /\*\*/.test(pastedText) || /#TKT/i.test(pastedText))) {
+      e.preventDefault();
+      const cleaned = cleanMarkdownFromText(pastedText);
+      const target = e.target;
+      const start = target.selectionStart || 0;
+      const end = target.selectionEnd || 0;
+      const newText = description.slice(0, start) + cleaned + description.slice(end);
+      setDescription(newText);
+    }
   };
   const [pendingFiles, setPendingFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -528,6 +571,7 @@ export default function CreateTicketModal({ isOpen, onClose, onSuccess }) {
               rows={2.5}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              onPaste={handleDescriptionPaste}
               placeholder="Provide complete details about the issue or request..."
               required
               className="w-full p-2.5 bg-[#E2E9F2] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.08)] border border-slate-300/60 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400/30 resize-none transition-all font-medium leading-normal"

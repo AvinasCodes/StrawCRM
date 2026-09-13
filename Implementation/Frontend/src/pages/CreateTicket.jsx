@@ -41,14 +41,28 @@ const PRIORITIES = [
   { id: 'Urgent', label: 'Urgent', activeText: 'text-rose-700 font-black', dot: 'bg-rose-500' },
 ];
 
-const CATEGORIES = [
-  'Technical Support',
-  'Billing & Payments',
-  'Account Access',
-  'Bug Report',
-  'Feature Request',
-  'General Inquiry',
-];
+/**
+ * Strips raw markdown syntax (# and *) so textarea descriptions remain clean and human-readable.
+ */
+export function cleanMarkdownFromText(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    // Convert markdown headers to clean labeled sections (### Issue Overview -> Issue Overview:)
+    .replace(/^#{1,6}\s*(.+)$/gm, (_match, p1) => {
+      const trimmed = p1.trim();
+      return trimmed.endsWith(':') ? trimmed : `${trimmed}:`;
+    })
+    // Strip bold & italic markdown asterisks / underscores (**text** -> text, *text* -> text)
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Strip remaining hashtags in front of words or ticket tags (#TKT-002 -> TKT-002)
+    .replace(/(^|\s)#+([a-zA-Z0-9_-]+)/g, '$1$2')
+    // Normalize any repeated colons
+    .replace(/:{2,}/g, ':')
+    .trim();
+}
 
 export default function CreateTicket({ onNavigate }) {
   const { user } = useAuth();
@@ -70,29 +84,67 @@ export default function CreateTicket({ onNavigate }) {
     return activeAgents.find((a) => a.id === assignedAgentId) || null;
   }, [activeAgents, assignedAgentId]);
 
-  // Dynamic Existing Categories fetched from live tickets + standard categories
-  const [existingCategories, setExistingCategories] = useState(CATEGORIES);
+  // Dynamic Existing Categories fetched ONLY from live tickets (no dummy categories)
+  const [existingCategories, setExistingCategories] = useState([]);
   const [categorySuggestions, setCategorySuggestions] = useState([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const categoryDropdownRef = useRef(null);
 
-  // Subscribe to live tickets to dynamically extract all existing categories
+  // Subscribe to live tickets to dynamically extract all existing categories from real database
   useEffect(() => {
     const unsubscribeTickets = subscribeTickets(
       {},
       (liveTickets) => {
         if (Array.isArray(liveTickets) && liveTickets.length > 0) {
-          const liveCats = liveTickets
-            .map((t) => (t.category || '').trim())
-            .filter(Boolean);
-          const combined = Array.from(new Set([...CATEGORIES, ...liveCats])).sort();
-          setExistingCategories(combined);
+          const liveCats = Array.from(
+            new Set(
+              liveTickets
+                .map((t) => (t.category || '').trim())
+                .filter(Boolean)
+            )
+          ).sort();
+          setExistingCategories(liveCats);
         }
       },
       () => { }
     );
     return () => unsubscribeTickets();
   }, []);
+
+  // Auto-recommend category based on subject & description against real existing categories
+  useEffect(() => {
+    if (category) return;
+    if (!existingCategories.length) return;
+
+    const query = `${subject} ${description}`.toLowerCase();
+    if (!query.trim()) return;
+
+    // 1. Direct name match
+    const directMatch = existingCategories.find((cat) =>
+      query.includes(cat.toLowerCase())
+    );
+    if (directMatch) {
+      setCategory(directMatch);
+      return;
+    }
+
+    // 2. Keyword heuristic mapping to real existing categories
+    for (const cat of existingCategories) {
+      const catLower = cat.toLowerCase();
+      if (
+        catLower.includes('mobile') &&
+        (query.includes('whatsapp') || query.includes('phone') || query.includes('app') || query.includes('android') || query.includes('ios'))
+      ) {
+        setCategory(cat);
+        return;
+      }
+      const words = catLower.split(/\s+/).filter((w) => w.length > 3);
+      if (words.some((w) => query.includes(w))) {
+        setCategory(cat);
+        return;
+      }
+    }
+  }, [subject, description, existingCategories, category]);
 
   // Dismiss category dropdown on click outside
   useEffect(() => {
@@ -110,7 +162,7 @@ export default function CreateTicket({ onNavigate }) {
     setCategory(val);
     if (!val.trim()) {
       setCategorySuggestions(existingCategories);
-      setShowCategorySuggestions(true);
+      setShowCategorySuggestions(existingCategories.length > 0);
       return;
     }
     const q = val.toLowerCase().trim();
@@ -118,7 +170,7 @@ export default function CreateTicket({ onNavigate }) {
       cat.toLowerCase().includes(q)
     );
     setCategorySuggestions(matches);
-    setShowCategorySuggestions(true);
+    setShowCategorySuggestions(matches.length > 0);
   };
 
   const handleCategoryFocus = () => {
@@ -127,7 +179,7 @@ export default function CreateTicket({ onNavigate }) {
       ? existingCategories.filter((cat) => cat.toLowerCase().includes(q))
       : existingCategories;
     setCategorySuggestions(matches);
-    setShowCategorySuggestions(true);
+    setShowCategorySuggestions(matches.length > 0);
   };
 
   // Attachments state
@@ -182,7 +234,7 @@ export default function CreateTicket({ onNavigate }) {
     setShowSuggestions(false);
   };
 
-  // AI Smart Assistant: Polish Subject & Description
+  // AI Smart Assistant: Polish Subject & Description (Zero markdown syntax, pure clean text)
   const handleAIPolish = () => {
     if (!description.trim() && !subject.trim()) {
       setError('Please enter a brief note or draft first so AI can polish it.');
@@ -198,15 +250,31 @@ export default function CreateTicket({ onNavigate }) {
         polishedSubject = firstLine.slice(0, 50) || 'Support Assistance Request';
       }
 
-      let polishedDesc = description.trim();
-      if (!polishedDesc.includes('###') && polishedDesc.length > 10) {
-        polishedDesc = `### Issue Overview\n${polishedDesc}\n\n### Impact Assessment\nAffects customer operations and requires priority investigation.\n\n### Next Action Items\n1. Review telemetry & system logs\n2. Dispatch resolution to client`;
+      let polishedDesc = cleanMarkdownFromText(description.trim());
+      if (polishedDesc.length > 5) {
+        if (!polishedDesc.toLowerCase().includes('issue overview:')) {
+          polishedDesc = `Issue Overview:\n${polishedDesc}\n\nImpact Assessment:\nAffects customer operations and requires priority investigation.\n\nNext Action Items:\n1. Review telemetry & system logs\n2. Dispatch resolution to client`;
+        }
       }
 
       setSubject(polishedSubject.replace(/\b\w/g, (c) => c.toUpperCase()));
-      setDescription(polishedDesc);
+      setDescription(cleanMarkdownFromText(polishedDesc));
       setIsPolishing(false);
-    }, 500);
+    }, 400);
+  };
+
+  // Auto-clean pasted text so markdown syntax (# and *) never pollutes the description
+  const handleDescriptionPaste = (e) => {
+    const pastedText = e.clipboardData?.getData('text');
+    if (pastedText && (/^#{1,6}\s/m.test(pastedText) || /\*\*/.test(pastedText) || /#TKT/i.test(pastedText))) {
+      e.preventDefault();
+      const cleaned = cleanMarkdownFromText(pastedText);
+      const target = e.target;
+      const start = target.selectionStart || 0;
+      const end = target.selectionEnd || 0;
+      const newText = description.slice(0, start) + cleaned + description.slice(end);
+      setDescription(newText);
+    }
   };
 
   // File Upload Handlers
@@ -543,6 +611,7 @@ export default function CreateTicket({ onNavigate }) {
                       id="ticket-description"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
+                      onPaste={handleDescriptionPaste}
                       placeholder="Explain the technical problem, customer circumstances, error logs, or steps to reproduce..."
                       disabled={submitting || success}
                       required
@@ -679,7 +748,7 @@ export default function CreateTicket({ onNavigate }) {
                           value={category}
                           onChange={(e) => handleCategoryChange(e.target.value)}
                           onFocus={handleCategoryFocus}
-                          placeholder="e.g. Technical Support"
+                          placeholder={existingCategories[0] ? `e.g. ${existingCategories[0]}` : 'e.g. Mobile Support'}
                           disabled={submitting || success}
                           className="neu-input w-full px-3.5 py-1.5 text-xs font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400"
                         />
