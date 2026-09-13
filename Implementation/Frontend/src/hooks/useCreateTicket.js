@@ -1,25 +1,40 @@
 /**
  * useCreateTicket — Realtime Firestore mutation hook for creating tickets.
+ *
+ * Module-level lock (_inflight) ensures only one ticket creation runs at a time,
+ * even across double-clicks, React StrictMode double-invokes, or rapid re-renders.
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { createTicket } from '../services/firestoreService';
+
+// Module-level in-flight guard: prevents concurrent duplicate ticket submissions
+let _inflight = false;
 
 export function useCreateTicket() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState(null);
+  const pendingRef = useRef(false);
 
   const mutateAsync = async ({ ticketData }) => {
+    // Double-click / concurrent call guard
+    if (_inflight || pendingRef.current) {
+      throw new Error('A ticket is already being created. Please wait.');
+    }
+    _inflight = true;
+    pendingRef.current = true;
     setIsPending(true);
     setError(null);
     try {
       const result = await createTicket(ticketData);
-      setIsPending(false);
       return result;
     } catch (err) {
       setError(err);
-      setIsPending(false);
       throw err;
+    } finally {
+      _inflight = false;
+      pendingRef.current = false;
+      setIsPending(false);
     }
   };
 
@@ -33,7 +48,10 @@ export function useCreateTicket() {
     isPending,
     isError: Boolean(error),
     error,
-    reset: () => setError(null),
+    reset: () => {
+      setError(null);
+      _inflight = false;
+    },
   };
 }
 

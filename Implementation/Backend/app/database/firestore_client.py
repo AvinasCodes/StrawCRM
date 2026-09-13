@@ -654,126 +654,134 @@ class FirestoreClient:
 
         return None
 
+    _create_ticket_lock = threading.Lock()
+
     @staticmethod
     def create_ticket(payload: dict) -> Dict[str, Any]:
         """Create a new ticket with customer_id, attachments, and auto-generated or provided ID."""
-        db = _ensure_db_initialized()
-        now_iso = datetime.now(timezone.utc).isoformat()
+        with FirestoreClient._create_ticket_lock:
+            db = _ensure_db_initialized()
+            now_iso = datetime.now(timezone.utc).isoformat()
 
-        # Determine ticket ID
-        ticket_id = payload.get("ticket_id")
-        if not ticket_id or ticket_id in db:
-            ticket_id = _get_next_ticket_id(db)
-        else:
-            _update_ticket_seq(ticket_id)
+            # Determine ticket ID
+            raw_ticket_id = payload.get("ticket_id")
+            if raw_ticket_id and str(raw_ticket_id).strip():
+                clean_tid = str(raw_ticket_id).strip().lstrip("#").upper()
+                if clean_tid not in db:
+                    ticket_id = clean_tid
+                    _update_ticket_seq(ticket_id)
+                else:
+                    ticket_id = _get_next_ticket_id(db)
+            else:
+                ticket_id = _get_next_ticket_id(db)
 
-        # Determine customer ID
-        customer_id = payload.get("customer_id")
-        if not customer_id:
-            customer_id = _get_or_assign_customer_id(payload, db)
+            # Determine customer ID
+            customer_id = payload.get("customer_id")
+            if not customer_id:
+                customer_id = _get_or_assign_customer_id(payload, db)
 
-        # Determine raised_by_name and raised_by_user_id
-        customer_name = str(payload.get("customer_name", "Customer")).strip()
-        raised_by_name = payload.get("raised_by_name") or customer_name
-        raised_by_user_id = payload.get("raised_by_user_id")
-        if not raised_by_user_id or raised_by_user_id == "usr_agent_01":
-            name_slug = customer_name.lower().replace(" ", "_")
-            raised_by_user_id = f"usr_{name_slug}" if name_slug else customer_id
+            # Determine raised_by_name and raised_by_user_id
+            customer_name = str(payload.get("customer_name", "Customer")).strip()
+            raised_by_name = payload.get("raised_by_name") or customer_name
+            raised_by_user_id = payload.get("raised_by_user_id")
+            if not raised_by_user_id or raised_by_user_id == "usr_agent_01":
+                name_slug = customer_name.lower().replace(" ", "_")
+                raised_by_user_id = f"usr_{name_slug}" if name_slug else customer_id
 
-        # Clean attachments
-        raw_att = payload.get("attachments") or []
-        attachments = []
-        if isinstance(raw_att, list):
-            for a in raw_att:
-                if isinstance(a, dict):
-                    att_item = {
-                        "name": str(a.get("name", "attachment")),
-                        "url": str(a.get("url", "")),
-                        "size": int(a.get("size", 0)),
-                        "type": str(a.get("type", "application/octet-stream")),
-                    }
-                    if a.get("id"):
-                        att_item["id"] = str(a["id"])
-                    if a.get("storage"):
-                        att_item["storage"] = str(a["storage"])
-                    if a.get("data"):
-                        att_item["data"] = str(a["data"])
-                    attachments.append(att_item)
+            # Clean attachments
+            raw_att = payload.get("attachments") or []
+            attachments = []
+            if isinstance(raw_att, list):
+                for a in raw_att:
+                    if isinstance(a, dict):
+                        att_item = {
+                            "name": str(a.get("name", "attachment")),
+                            "url": str(a.get("url", "")),
+                            "size": int(a.get("size", 0)),
+                            "type": str(a.get("type", "application/octet-stream")),
+                        }
+                        if a.get("id"):
+                            att_item["id"] = str(a["id"])
+                        if a.get("storage"):
+                            att_item["storage"] = str(a["storage"])
+                        if a.get("data"):
+                            att_item["data"] = str(a["data"])
+                        attachments.append(att_item)
 
-        ticket = {
-            "ticket_id": ticket_id,
-            "customer_id": customer_id,
-            "raised_by_name": raised_by_name,
-            "raised_by_user_id": raised_by_user_id,
-            "customer_name": customer_name,
-            "customer_email": str(payload.get("customer_email", "")).strip(),
-            "subject": str(payload.get("subject", "")).strip(),
-            "description": str(payload.get("description", "")).strip(),
-            "status": str(payload.get("status") or "Open").strip(),
-            "priority": str(payload.get("priority") or "Normal").strip(),
-            "assigned_to_name": str(payload.get("assigned_to_name") or "").strip(),
-            "assigned_to_email": str(payload.get("assigned_to_email") or "").strip(),
-            "assigned_to_id": str(payload.get("assigned_to_id") or "").strip(),
-            "attachments": attachments,
-            "created_at": payload.get("created_at") or now_iso,
-            "updated_at": now_iso,
-            "notes": payload.get("notes") or [],
-        }
+            category_val = str(payload.get("category") or "General Inquiry").strip()
+            ticket = {
+                "ticket_id": ticket_id,
+                "customer_id": customer_id,
+                "raised_by_name": raised_by_name,
+                "raised_by_user_id": raised_by_user_id,
+                "customer_name": customer_name,
+                "customer_email": str(payload.get("customer_email", "")).strip(),
+                "subject": str(payload.get("subject", "")).strip(),
+                "description": str(payload.get("description", "")).strip(),
+                "category": category_val,
+                "status": str(payload.get("status") or "Open").strip(),
+                "priority": str(payload.get("priority") or "Normal").strip(),
+                "assigned_to_name": str(payload.get("assigned_to_name") or "").strip(),
+                "assigned_to_email": str(payload.get("assigned_to_email") or "").strip(),
+                "assigned_to_id": str(payload.get("assigned_to_id") or "").strip(),
+                "attachments": attachments,
+                "created_at": payload.get("created_at") or now_iso,
+                "updated_at": now_iso,
+                "notes": payload.get("notes") or [],
+            }
 
-        # ── Idempotency guard 1: ticket_id already exists → update with new payload ──
-        if ticket_id in db:
-            logger.debug("Ticket %s already exists, updating with incoming payload.", ticket_id)
-            db[ticket_id].update({k: v for k, v in ticket.items() if v is not None and v != ""})
+            # ── Idempotency guard 1: ticket_id already exists → return existing ──
+            if ticket_id in db:
+                logger.debug("Ticket %s already exists, returning existing.", ticket_id)
+                return copy.deepcopy(db[ticket_id])
+
+            # ── Idempotency guard 2: same subject + email created within last 30s ──
+            now_dt = datetime.now(timezone.utc)
+            subj_lower = str(payload.get("subject", "")).strip().lower()
+            email_lower = str(payload.get("customer_email", "")).strip().lower()
+            if subj_lower and email_lower:
+                for existing in db.values():
+                    if (
+                        str(existing.get("subject", "")).strip().lower() == subj_lower
+                        and str(existing.get("customer_email", "")).strip().lower() == email_lower
+                    ):
+                        try:
+                            created_dt = datetime.fromisoformat(str(existing.get("created_at", "")).replace("Z", "+00:00"))
+                            if (now_dt - created_dt).total_seconds() < 30:
+                                logger.debug("Duplicate ticket suppressed: same subject+email within 30s.")
+                                return copy.deepcopy(existing)
+                        except Exception:
+                            pass
+
+            db[ticket_id] = ticket
             _save_db(db)
-            return db[ticket_id]
 
-        # ── Idempotency guard 2: same subject + email created within last 60s ──
-        from datetime import timedelta
-        now_dt = datetime.now(timezone.utc)
-        subj_lower = str(payload.get("subject", "")).strip().lower()
-        email_lower = str(payload.get("customer_email", "")).strip().lower()
-        if subj_lower and email_lower:
-            for existing in db.values():
-                if (
-                    str(existing.get("subject", "")).strip().lower() == subj_lower
-                    and str(existing.get("customer_email", "")).strip().lower() == email_lower
-                ):
-                    try:
-                        created_dt = datetime.fromisoformat(str(existing.get("created_at", "")).replace("Z", "+00:00"))
-                        if (now_dt - created_dt).total_seconds() < 60:
-                            logger.debug("Duplicate ticket suppressed: same subject+email within 60s.")
-                            return existing
-                    except Exception:
-                        pass
+            # Keep customers DB in sync
+            try:
+                _upsert_customer(ticket)
+            except Exception as e:
+                logger.warning("_upsert_customer failed: %s", e)
 
-        db[ticket_id] = ticket
-        _save_db(db)
-
-        # Keep customers DB in sync
-        try:
-            _upsert_customer(ticket)
-        except Exception as e:
-            logger.warning("_upsert_customer failed: %s", e)
-
-        return {
-            "ticket_id": ticket_id,
-            "customer_id": ticket["customer_id"],
-            "raised_by_user_id": ticket["raised_by_user_id"],
-            "raised_by_name": ticket.get("raised_by_name", ""),
-            "customer_name": ticket["customer_name"],
-            "customer_email": ticket["customer_email"],
-            "subject": ticket["subject"],
-            "description": ticket["description"],
-            "status": ticket["status"],
-            "priority": ticket.get("priority", "Normal"),
-            "assigned_to_name": ticket.get("assigned_to_name", ""),
-            "assigned_to_email": ticket.get("assigned_to_email", ""),
-            "assigned_to_id": ticket.get("assigned_to_id", ""),
-            "attachments": ticket["attachments"],
-            "created_at": ticket["created_at"],
-            "updated_at": ticket["updated_at"],
-            "notes": ticket["notes"],
-        }
+            return {
+                "ticket_id": ticket_id,
+                "customer_id": ticket["customer_id"],
+                "raised_by_user_id": ticket["raised_by_user_id"],
+                "raised_by_name": ticket.get("raised_by_name", ""),
+                "customer_name": ticket["customer_name"],
+                "customer_email": ticket["customer_email"],
+                "subject": ticket["subject"],
+                "description": ticket["description"],
+                "category": ticket.get("category", "General Inquiry"),
+                "status": ticket["status"],
+                "priority": ticket.get("priority", "Normal"),
+                "assigned_to_name": ticket.get("assigned_to_name", ""),
+                "assigned_to_email": ticket.get("assigned_to_email", ""),
+                "assigned_to_id": ticket.get("assigned_to_id", ""),
+                "attachments": ticket["attachments"],
+                "created_at": ticket["created_at"],
+                "updated_at": ticket["updated_at"],
+                "notes": ticket["notes"],
+            }
 
     @staticmethod
     def update_ticket(
