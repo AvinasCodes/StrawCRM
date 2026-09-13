@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import TicketStatusBadge from '../tickets/TicketStatusBadge';
 import MinimalDeleteButton from '../ui/MinimalDeleteButton';
-import { deleteCustomer } from '../../services/firestoreService';
+import { deleteCustomer, triggerHardReload } from '../../services/firestoreService';
 
 export default function CustomerTicketHistoryPanel({
   isOpen,
@@ -445,6 +445,7 @@ export default function CustomerTicketHistoryPanel({
                     onCustomerDeleted(idToDelete);
                   }
                   onClose();
+                  triggerHardReload();
                 } catch (err) {
                   setDeleteError(err.message || 'Failed to remove customer');
                   setDeleting(false);

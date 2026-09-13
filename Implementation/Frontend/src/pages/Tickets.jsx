@@ -30,6 +30,7 @@ import {
   subscribeTickets,
   updateTicket,
   deleteTicket,
+  triggerHardReload,
 } from '../services/firestoreService';
 import { useAuth } from '../context/useAuth';
 import { getActiveAgents } from '../services/teamAgents';
@@ -144,6 +145,7 @@ export default function Tickets({ onNavigate }) {
 
     try {
       await deleteTicket(id);
+      triggerHardReload();
     } catch (err) {
       // Rollback: re-add if delete failed
       setTickets((prev) => [...prev, ticket]);
@@ -409,6 +411,7 @@ export default function Tickets({ onNavigate }) {
       await deleteTicket(id);
       if (selectedTicketId === id) setSelectedTicketId(null);
       setDeleteModal(null);
+      triggerHardReload();
     } catch (err) {
       alert(err.message || 'Failed to delete ticket');
     } finally {

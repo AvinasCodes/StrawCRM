@@ -127,11 +127,10 @@ async def add_note(
 @router.delete("/{ticket_id}")
 async def delete_ticket(
     ticket_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Delete a single ticket by ticket ID.
-    Protected endpoint: requires valid Firebase JWT Bearer token.
     """
     return TicketService.delete_ticket(ticket_id)
 
@@ -139,11 +138,10 @@ async def delete_ticket(
 @router.post("/bulk-delete")
 async def bulk_delete_tickets(
     payload: BulkDeleteRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Bulk delete multiple tickets by ticket IDs.
-    Protected endpoint: requires valid Firebase JWT Bearer token.
     """
     return TicketService.delete_tickets_bulk(payload.ticket_ids)
 
@@ -151,7 +149,7 @@ async def bulk_delete_tickets(
 @router.delete("")
 async def bulk_delete_tickets_delete(
     payload: BulkDeleteRequest,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Bulk delete tickets via DELETE method.

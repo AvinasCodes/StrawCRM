@@ -31,6 +31,7 @@ import {
   subscribeCustomers,
   updateTicket,
   deleteTicket,
+  triggerHardReload,
 } from '../services/firestoreService';
 
 export default function Dashboard({ onNavigate }) {
@@ -245,6 +246,7 @@ export default function Dashboard({ onNavigate }) {
       if (selectedTicketId === deleteModal.ticket.ticket_id) {
         setSelectedTicketId(null);
       }
+      triggerHardReload();
     } catch (err) {
       alert(err.message || 'Failed to delete ticket.');
     } finally {

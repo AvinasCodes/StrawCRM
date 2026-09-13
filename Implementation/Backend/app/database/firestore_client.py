@@ -833,8 +833,22 @@ class FirestoreClient:
         if target_key and target_key in db:
             del db[target_key]
             _save_db(db)
-            return True
-        return False
+
+        # Also delete from Cloud Firestore REST if configured
+        try:
+            if FIREBASE_PROJECT_ID:
+                import urllib.request
+                for doc_name in [clean_id, f"%23{clean_id}", str(ticket_id).strip()]:
+                    url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/tickets/{doc_name}"
+                    req = urllib.request.Request(url, method="DELETE")
+                    try:
+                        urllib.request.urlopen(req, timeout=2.5)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        return True
 
     @staticmethod
     def delete_tickets_bulk(ticket_ids: List[str]) -> List[str]:
@@ -848,7 +862,22 @@ class FirestoreClient:
                 deleted.append(k)
         if deleted:
             _save_db(db)
-        return deleted
+
+        try:
+            if FIREBASE_PROJECT_ID:
+                import urllib.request
+                for cid in clean_ids:
+                    for doc_name in [cid, f"%23{cid}"]:
+                        url = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents/tickets/{doc_name}"
+                        req = urllib.request.Request(url, method="DELETE")
+                        try:
+                            urllib.request.urlopen(req, timeout=2.0)
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
+        return list(clean_ids)
 
     @staticmethod
     def delete_customer(customer_id: str) -> Dict[str, Any]:

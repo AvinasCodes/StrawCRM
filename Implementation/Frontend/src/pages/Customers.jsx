@@ -15,7 +15,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { subscribeCustomers, subscribeTickets, syncFromBackend, deleteCustomer } from '../services/firestoreService';
+import { subscribeCustomers, subscribeTickets, syncFromBackend, deleteCustomer, deleteTicket, triggerHardReload } from '../services/firestoreService';
 import { listCustomers } from '../services/api';
 import MinimalDeleteButton from '../components/ui/MinimalDeleteButton';
 import CustomerTicketHistoryPanel from '../components/customers/CustomerTicketHistoryPanel';
@@ -701,6 +701,13 @@ export default function Customers({ onNavigate }) {
           isOpen={!!selectedTicketId}
           onClose={() => setSelectedTicketId(null)}
           onUpdated={() => syncFromBackend()}
+          onDelete={async (ticket) => {
+            setSelectedTicketId(null);
+            if (ticket && ticket.ticket_id) {
+              await deleteTicket(ticket.ticket_id);
+              triggerHardReload();
+            }
+          }}
         />
       )}
 
@@ -758,6 +765,7 @@ export default function Customers({ onNavigate }) {
                       )
                     );
                     setCustomerToDelete(null);
+                    triggerHardReload();
                   } catch (err) {
                     alert(err.message || 'Failed to remove customer');
                   } finally {

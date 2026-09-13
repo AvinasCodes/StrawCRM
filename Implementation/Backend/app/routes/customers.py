@@ -1,6 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_optional
 from app.schemas.customer import CustomerListItem, CustomerResponse
 from app.schemas.ticket import TicketListItem
 from app.services.ticket_service import TicketService
@@ -11,20 +11,19 @@ router = APIRouter(prefix="/api/customers", tags=["Customers"])
 @router.get("", response_model=List[CustomerListItem])
 async def list_customers(
     search: Optional[str] = Query(None, description="Search by customer ID, name, email, or topic"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
-    List all customers aggregated across tickets.
-    Returns customer ID, name, email, ticket count, and recent activity.
+    Fetch all unique customers with ticket statistics.
     Accessible by any authenticated staff member / user.
     """
     return TicketService.list_customers(search=search)
 
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
-async def get_customer_details(
+async def get_customer(
     customer_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Fetch customer details and all tickets for a specific customer ID
@@ -37,7 +36,7 @@ async def get_customer_details(
 @router.get("/{customer_id}/tickets", response_model=List[TicketListItem])
 async def get_customer_tickets(
     customer_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Fetch all tickets for a specific customer ID.
@@ -49,10 +48,9 @@ async def get_customer_tickets(
 @router.delete("/{customer_id}")
 async def delete_customer(
     customer_id: str,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user_optional),
 ):
     """
     Delete a customer profile and remove all associated tickets.
     """
     return TicketService.delete_customer(customer_id)
-

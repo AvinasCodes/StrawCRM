@@ -105,6 +105,19 @@ function persistDeletedTicketIds() {
   } catch { }
 }
 
+/**
+ * Hard reload the browser window, equivalent to Ctrl + Shift + R.
+ * Immediately purges any memory/DOM state and reloads fresh from server.
+ */
+export function triggerHardReload() {
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.clear();
+    } catch {}
+    window.location.reload();
+  }
+}
+
 let _localTickets = (() => {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -391,14 +404,30 @@ export function subscribeTickets(filters = {}, onUpdate, onError) {
 
           // Smart merge: preserve existing local/backend notes and avoid reverting newer status
           const mergedMap = new Map();
-          _localTickets.forEach((t) => mergedMap.set((t.ticket_id || '').toUpperCase(), { ...t }));
+          _localTickets.forEach((t) => {
+            const tKey = (t.ticket_id || '').replace(/^#/, '').toUpperCase();
+            if (_deletedIds.has(tKey) || _deletedIds.has(`#${tKey}`)) return;
+            mergedMap.set((t.ticket_id || '').toUpperCase(), { ...t });
+          });
 
           rawTickets.forEach((rt) => {
-            const key = (rt.ticket_id || '').toUpperCase();
-            // Since this document exists live in Firestore, unblock any stale local deletion tombstone
-            _deletedIds.delete(key.replace(/^#/, ''));
-            _deletedIds.delete(key);
+            const cleanKey = (rt.ticket_id || '').replace(/^#/, '').toUpperCase();
+            // NEVER resurrect tickets in the deletion tombstone set
+            if (
+              _deletedIds.has(cleanKey) ||
+              _deletedIds.has(`#${cleanKey}`) ||
+              _deletedIds.has((rt.ticket_id || '').toUpperCase())
+            ) {
+              return;
+            }
 
+            const cid = (rt.customer_id || '').toUpperCase().trim();
+            const cEmail = (rt.customer_email || '').toLowerCase().trim();
+            if (_deletedCustomerIds.has(cid) || _deletedCustomerIds.has(cEmail.toUpperCase())) {
+              return;
+            }
+
+            const key = (rt.ticket_id || '').toUpperCase();
             const existing = mergedMap.get(key);
             if (!existing) {
               mergedMap.set(key, rt);
@@ -431,7 +460,14 @@ export function subscribeTickets(filters = {}, onUpdate, onError) {
             }
           });
 
-          _localTickets = Array.from(mergedMap.values());
+          _localTickets = Array.from(mergedMap.values()).filter((t) => {
+            const tid = (t.ticket_id || '').replace(/^#/, '').toUpperCase();
+            const cid = (t.customer_id || '').toUpperCase().trim();
+            const cEmail = (t.customer_email || '').toLowerCase().trim();
+            if (_deletedIds.has(tid) || _deletedIds.has(`#${tid}`)) return false;
+            if (_deletedCustomerIds.has(cid) || _deletedCustomerIds.has(cEmail.toUpperCase())) return false;
+            return true;
+          });
           _localTickets.sort((a, b) => {
             const tA = new Date(a.created_at).getTime() || 0;
             const tB = new Date(b.created_at).getTime() || 0;
@@ -870,8 +906,11 @@ export async function deleteCustomer(customerId) {
     return cid === cleanId || email === customerId.toLowerCase();
   });
   ticketsToDelete.forEach((t) => {
-    _deletedIds.add((t.ticket_id || '').replace(/^#/, '').toUpperCase());
+    const upperTid = (t.ticket_id || '').replace(/^#/, '').toUpperCase();
+    _deletedIds.add(upperTid);
+    _deletedIds.add(`#${upperTid}`);
   });
+  persistDeletedTicketIds();
 
   // 2. Remove from local tickets cache
   _localTickets = _localTickets.filter((t) => {
@@ -879,6 +918,7 @@ export async function deleteCustomer(customerId) {
     const email = (t.customer_email || '').toLowerCase();
     return cid !== cleanId && email !== customerId.toLowerCase();
   });
+  persistLocalTickets();
   notifyLocalListeners();
 
   // 3. Send DELETE request to Backend REST API
@@ -1157,13 +1197,18 @@ export async function deleteTicket(ticketId) {
 
   // 0. Mark as deleted so sync/snapshot can never resurrect it
   _deletedIds.add(upperCleanId);
+  _deletedIds.add(`#${upperCleanId}`);
+  if (ticketId) {
+    _deletedIds.add(String(ticketId).toUpperCase());
+  }
   persistDeletedTicketIds();
 
-  // 1. Optimistic removal from _localTickets
+  // 1. Optimistic removal from _localTickets & persist to localStorage immediately
   const initialCount = _localTickets.length;
   _localTickets = _localTickets.filter(
     (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() !== upperCleanId
   );
+  persistLocalTickets();
   if (_localTickets.length !== initialCount) {
     notifyLocalListeners();
   }
@@ -1209,10 +1254,11 @@ export async function deleteTicketsBulk(ticketIds = []) {
   });
   persistDeletedTicketIds();
 
-  // 1. Optimistic removal from _localTickets
+  // 1. Optimistic removal from _localTickets & persist to localStorage immediately
   _localTickets = _localTickets.filter(
     (t) => !targetUpperSet.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
   );
+  persistLocalTickets();
   notifyLocalListeners();
 
   // 2. Sync to Backend REST API (POST /api/tickets/bulk-delete)

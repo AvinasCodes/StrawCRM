@@ -13,7 +13,7 @@ import NotificationToastContainer from '../ui/NotificationToastContainer';
 import { useTeamChat } from '../../context/TeamChatContext';
 import { useAuth } from '../../context/useAuth';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
-import { subscribeTickets } from '../../services/firestoreService';
+import { subscribeTickets, deleteTicket, triggerHardReload } from '../../services/firestoreService';
 import { dispatchTicketNotification } from '../../services/notificationService';
 
 export default function AppShell({ currentPath, onNavigate, children }) {
@@ -179,7 +179,13 @@ export default function AppShell({ currentPath, onNavigate, children }) {
         isOpen={Boolean(modalTicketId)}
         onClose={() => setModalTicketId(null)}
         onUpdated={() => { }}
-        onDelete={() => setModalTicketId(null)}
+        onDelete={async (ticket) => {
+          setModalTicketId(null);
+          if (ticket && ticket.ticket_id) {
+            await deleteTicket(ticket.ticket_id);
+            triggerHardReload();
+          }
+        }}
       />
 
       {/* Floating Real-Time Notifications & Sound Alert Toasts */}
