@@ -10,10 +10,10 @@ export default function NotificationToastContainer({ onOpenTicket }) {
       if (!detail) return;
       setToasts((prev) => [detail, ...prev].slice(0, 3));
 
-      // Auto dismiss after 6 seconds
+      // Auto dismiss after 9 seconds
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== detail.id));
-      }, 6000);
+      }, 9000);
     };
 
     window.addEventListener('strawcrm-notification-toast', handleToast);
@@ -73,19 +73,41 @@ export default function NotificationToastContainer({ onOpenTicket }) {
                     #{toast.ticketId}: {toast.subject}
                   </p>
 
-                  {/* Badges for active notification actions */}
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 flex-wrap">
-                    {toast.emailDispatched && (
-                      <span className="inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
-                        <Mail className="w-3 h-3 text-emerald-600" />
-                        <span>Email sent to {toast.recipientEmail}</span>
-                      </span>
-                    )}
-                    {toast.soundPlayed && (
-                      <span className="inline-flex items-center gap-1 text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60">
-                        <Volume2 className="w-3 h-3 text-blue-600" />
-                        <span>Chime</span>
-                      </span>
+                  {/* Badges and Sandbox Policy Notice for active notification actions */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                      {toast.emailDispatched && (
+                        <span className="inline-flex items-center gap-1 text-emerald-700 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                          <Mail className="w-3 h-3 text-emerald-600" />
+                          <span>
+                            {toast.recipientEmail?.toLowerCase() === 'avinash48as@gmail.com'
+                              ? `Direct mail delivered to ${toast.recipientEmail}`
+                              : `Assigned to ${toast.recipientEmail}`}
+                          </span>
+                        </span>
+                      )}
+                      {toast.soundPlayed && (
+                        <span className="inline-flex items-center gap-1 text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200/60">
+                          <Volume2 className="w-3 h-3 text-blue-600" />
+                          <span>Chime</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Resend Sandbox Alert Banner */}
+                    {toast.emailDispatched && toast.recipientEmail?.toLowerCase() !== 'avinash48as@gmail.com' && (
+                      <div className="bg-amber-50/95 border border-amber-200 rounded-xl p-2.5 text-[11px] leading-relaxed text-amber-900 shadow-xs animate-in fade-in duration-200">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-950 mb-1">
+                          <span className="text-xs">⚠️</span>
+                          <span>Resend Sandbox Mode Notice</span>
+                        </div>
+                        <p className="text-slate-700 font-medium">
+                          Mail registered address (<strong className="text-slate-900 font-bold">avinash48as@gmail.com</strong>) par route hua hai with <code className="bg-amber-100 text-amber-950 px-1 py-0.2 rounded font-mono text-[10px] font-bold">[For {toast.recipientEmail}]</code> tag.
+                        </p>
+                        <p className="text-[10px] text-amber-800 font-normal mt-1 border-t border-amber-200/60 pt-1">
+                          * Resend Sandbox criteria ke kaaran bina custom domain verify kiye external inboxes par direct delivery restricted rehti hai.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
