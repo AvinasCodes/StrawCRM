@@ -165,13 +165,75 @@ export function triggerHardReload() {
   }
 }
 
+/**
+ * Deduplicate a tickets array strictly by:
+ * 1. Normalized ticket_id (TKT-001 vs #TKT-001)
+ * 2. Content fingerprint (customer_email + subject):
+ *    If an optimistic ticket has the same email + subject as a real server/Firestore ticket,
+ *    discard the optimistic duplicate immediately.
+ *    If both are real or both are optimistic, keep only one.
+ */
+export function dedupTicketsList(tickets) {
+  if (!Array.isArray(tickets)) return [];
+  const seenIds = new Set();
+  const seenFingerprints = new Map(); // fp -> ticket
+  const result = [];
+
+  for (const t of tickets) {
+    if (!t) continue;
+    const cleanId = String(t.ticket_id || '').trim().replace(/^#/, '').toUpperCase();
+    if (!cleanId) continue;
+
+    // 1. Strict ID uniqueness
+    if (seenIds.has(cleanId)) {
+      continue;
+    }
+
+    // 2. Email + Subject fingerprint deduplication
+    const email = String(t.customer_email || '').trim().toLowerCase();
+    const subject = String(t.subject || '').trim().toLowerCase();
+    const fp = (email && subject) ? `${email}:::${subject}` : null;
+
+    if (fp) {
+      if (seenFingerprints.has(fp)) {
+        const existing = seenFingerprints.get(fp);
+        // If current is optimistic and existing is real/server-confirmed, skip current
+        if (t._isOptimistic && !existing._isOptimistic) {
+          continue;
+        }
+        // If current is real/server-confirmed and existing is optimistic, replace existing
+        if (!t._isOptimistic && existing._isOptimistic) {
+          const exCleanId = String(existing.ticket_id || '').trim().replace(/^#/, '').toUpperCase();
+          seenIds.delete(exCleanId);
+          const exIdx = result.findIndex((item) => String(item.ticket_id || '').trim().replace(/^#/, '').toUpperCase() === exCleanId);
+          if (exIdx !== -1) {
+            result.splice(exIdx, 1);
+          }
+          seenIds.add(cleanId);
+          seenFingerprints.set(fp, t);
+          result.push(t);
+          continue;
+        }
+        // If both have same status, skip duplicate
+        continue;
+      }
+      seenFingerprints.set(fp, t);
+    }
+
+    seenIds.add(cleanId);
+    result.push(t);
+  }
+
+  return result;
+}
+
 let _localTickets = (() => {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter((t) => {
+        const filtered = parsed.filter((t) => {
           const cid = (t.customer_id || '').toUpperCase().trim();
           const email = (t.customer_email || '').toLowerCase().trim();
           const subj = (t.subject || '').toLowerCase().trim();
@@ -182,6 +244,7 @@ let _localTickets = (() => {
           if (DUMMY_CUSTOMER_SUBJECTS.has(subj)) return false;
           return true;
         });
+        return dedupTicketsList(filtered);
       }
     }
   } catch { }
@@ -193,6 +256,7 @@ const _detailListeners = new Map(); // cleanId.toUpperCase() -> Set of callback 
 
 function persistLocalTickets() {
   try {
+    _localTickets = dedupTicketsList(_localTickets);
     // Only store first 100 tickets to keep localStorage lightweight
     const light = _localTickets.slice(0, 100).map((t) => {
       if (!t.attachments || t.attachments.length === 0) return t;
@@ -371,6 +435,8 @@ export async function syncFromBackend() {
             customer_email: st.customer_email || lt?.customer_email || '',
             subject: (st.subject && st.subject.trim()) || lt?.subject || 'Support Ticket',
             description: (st.description && st.description.trim()) || lt?.description || '',
+            // category: prefer non-null from Firestore/local over backend's null
+            category: (st.category && String(st.category).trim()) || lt?.category || '',
             customer_id: st.customer_id || lt?.customer_id || 'CUST-001',
             assigned_to_name: st.assigned_to_name !== undefined ? st.assigned_to_name : (lt?.assigned_to_name || ''),
             assigned_to_email: st.assigned_to_email !== undefined ? st.assigned_to_email : (lt?.assigned_to_email || ''),
@@ -414,23 +480,11 @@ export async function syncFromBackend() {
           map.set(key, merged);
         });
 
-        // Only keep local tickets that haven't arrived from server yet if they were created offline by THIS client within the last 60s or marked optimistic
-        const nowMs = Date.now();
-        _localTickets.forEach((lt) => {
-          const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
-          if (_deletedIds.has(ltKey)) return;
-          if (!map.has(ltKey)) {
-            const ageMs = nowMs - new Date(lt.created_at || nowMs).getTime();
-            if (ageMs < 60000 || lt._isOptimistic) {
-              map.set(ltKey, lt);
-            }
-          }
-        });
-
-        // Filter out locally-deleted tickets from the merged result
-        _localTickets = Array.from(map.values()).filter(
+        // The server is the authoritative single source of truth:
+        // Filter out locally-deleted tickets and deduplicate
+        _localTickets = dedupTicketsList(Array.from(map.values()).filter(
           (t) => !_deletedIds.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
-        );
+        ));
         _localTickets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         persistLocalTickets();
         notifyLocalListeners();
@@ -463,142 +517,7 @@ export async function syncFromBackend() {
   return _syncPromise;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Real-time WebSocket Synchronizer (Instant Cross-Browser Updates)
-// ─────────────────────────────────────────────────────────────────────────────
-let _ws = null;
-let _wsReconnectTimer = null;
-let _wsPingTimer = null;
-
-function handleWebSocketMessage(msg) {
-  if (!msg || !msg.type) return;
-
-  if (msg.type === 'ticket_deleted') {
-    const cleanId = String(msg.ticket_id || '').trim().replace(/^#/, '').toUpperCase();
-    tombstoneTicket(cleanId);
-
-    _localTickets = _localTickets.filter(
-      (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() !== cleanId
-    );
-    persistLocalTickets();
-    notifyLocalListeners();
-  } else if (msg.type === 'tickets_bulk_deleted') {
-    const ids = (msg.ticket_ids || []).map((id) => String(id).trim().replace(/^#/, '').toUpperCase());
-    const idSet = new Set(ids);
-    ids.forEach((id) => {
-      tombstoneTicket(id);
-    });
-
-    _localTickets = _localTickets.filter(
-      (t) => !idSet.has((t.ticket_id || '').replace(/^#/, '').toUpperCase())
-    );
-    persistLocalTickets();
-    notifyLocalListeners();
-  } else if (msg.type === 'customer_deleted') {
-    const cleanCid = String(msg.customer_id || '').trim().replace(/^#/, '').toUpperCase();
-    tombstoneCustomer(cleanCid);
-
-    _localTickets = _localTickets.filter((t) => {
-      const cid = (t.customer_id || '').replace(/^#/, '').toUpperCase();
-      const email = (t.customer_email || '').toLowerCase();
-      return cid !== cleanCid && email !== cleanCid.toLowerCase();
-    });
-    persistLocalTickets();
-    notifyLocalListeners();
-  } else if (msg.type === 'ticket_created' && msg.ticket) {
-    const newT = msg.ticket;
-    const tid = (newT.ticket_id || '').replace(/^#/, '').toUpperCase();
-    clearTicketTombstone(tid);
-    updateTicketSeq(tid);
-
-    const idx = _localTickets.findIndex(
-      (t) => (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid
-    );
-    if (idx >= 0) {
-      _localTickets[idx] = { ..._localTickets[idx], ...newT, _isOptimistic: false };
-    } else {
-      _localTickets = [{ ...newT, _isOptimistic: false }, ..._localTickets];
-    }
-    persistLocalTickets();
-    notifyLocalListeners();
-  } else if (msg.type === 'ticket_updated' && msg.ticket) {
-    const updated = msg.ticket;
-    const tid = (updated.ticket_id || '').replace(/^#/, '').toUpperCase();
-    clearTicketTombstone(tid);
-    updateTicketSeq(tid);
-
-    _localTickets = _localTickets.map((t) =>
-      (t.ticket_id || '').replace(/^#/, '').toUpperCase() === tid ? { ...t, ...updated, _isOptimistic: false } : t
-    );
-    persistLocalTickets();
-    notifyLocalListeners();
-  }
-}
-
-export function initWebSocket() {
-  if (typeof window === 'undefined') return;
-  if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-
-  try {
-    const wsProto = window.location.protocol === 'https:' || API_BASE_URL.startsWith('https:') ? 'wss:' : 'ws:';
-    let host = API_BASE_URL.replace(/^https?:\/\//, '');
-    if (!host || host.startsWith('/')) {
-      host = window.location.host;
-    }
-    const wsUrl = `${wsProto}//${host}/api/ws`;
-
-    _ws = new WebSocket(wsUrl);
-
-    _ws.onopen = () => {
-      if (_wsReconnectTimer) {
-        clearTimeout(_wsReconnectTimer);
-        _wsReconnectTimer = null;
-      }
-      if (_wsPingTimer) clearInterval(_wsPingTimer);
-      _wsPingTimer = setInterval(() => {
-        if (_ws && _ws.readyState === WebSocket.OPEN) {
-          try { _ws.send(JSON.stringify({ type: 'ping' })); } catch {}
-        }
-      }, 25000);
-    };
-
-    _ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        handleWebSocketMessage(msg);
-      } catch (err) {
-        console.warn('[WebSocket] Error parsing message:', err);
-      }
-    };
-
-    _ws.onclose = () => {
-      _ws = null;
-      if (_wsPingTimer) {
-        clearInterval(_wsPingTimer);
-        _wsPingTimer = null;
-      }
-      if (!_wsReconnectTimer) {
-        _wsReconnectTimer = setTimeout(() => {
-          _wsReconnectTimer = null;
-          initWebSocket();
-        }, 2000);
-      }
-    };
-
-    _ws.onerror = () => {
-      if (_ws) {
-        try { _ws.close(); } catch {}
-      }
-    };
-  } catch (err) {
-    console.debug('[WebSocket] Init notice:', err);
-  }
-}
-
-// Connect WebSocket and kick off background sync immediately
-initWebSocket();
+// Kick off background sync immediately (Firestore onSnapshot + polling handles realtime updates)
 syncFromBackend();
 
 
@@ -685,77 +604,56 @@ export function subscribeTickets(filters = {}, onUpdate, onError) {
             });
           });
 
-          // Smart merge: preserve existing local/backend notes and avoid reverting newer status
+          // Smart merge: Firestore is authoritative for live ticket data
           const mergedMap = new Map();
-          _localTickets.forEach((t) => {
-            const tKey = (t.ticket_id || '').replace(/^#/, '').toUpperCase();
-            if (_deletedIds.has(tKey) || _deletedIds.has(`#${tKey}`)) return;
-            mergedMap.set((t.ticket_id || '').toUpperCase(), { ...t });
-          });
-
           rawTickets.forEach((rt) => {
             const cleanKey = (rt.ticket_id || '').replace(/^#/, '').toUpperCase();
-            // NEVER resurrect tickets in the deletion tombstone set
-            if (
-              _deletedIds.has(cleanKey) ||
-              _deletedIds.has(`#${cleanKey}`) ||
-              _deletedIds.has((rt.ticket_id || '').toUpperCase())
-            ) {
-              return;
-            }
-
+            if (_deletedIds.has(cleanKey) || _deletedIds.has(`#${cleanKey}`)) return;
             const cid = (rt.customer_id || '').toUpperCase().trim();
             const cEmail = (rt.customer_email || '').toLowerCase().trim();
-            if (_deletedCustomerIds.has(cid) || _deletedCustomerIds.has(cEmail.toUpperCase())) {
-              return;
-            }
+            if (_deletedCustomerIds.has(cid) || _deletedCustomerIds.has(cEmail.toUpperCase())) return;
+            mergedMap.set(cleanKey, { ...rt, _isOptimistic: false });
+          });
 
-            const key = (rt.ticket_id || '').toUpperCase();
-            const existing = mergedMap.get(key);
-            if (!existing) {
-              mergedMap.set(key, rt);
-            } else {
-              const existingTime = new Date(existing.updated_at || existing.created_at || 0).getTime();
+          // Merge local tickets: preserve local notes or recent optimistic tickets
+          const nowMs = Date.now();
+          _localTickets.forEach((lt) => {
+            const ltKey = (lt.ticket_id || '').replace(/^#/, '').toUpperCase();
+            if (_deletedIds.has(ltKey) || _deletedIds.has(`#${ltKey}`)) return;
+
+            if (mergedMap.has(ltKey)) {
+              const rt = mergedMap.get(ltKey);
               const rtTime = new Date(rt.updated_at || rt.created_at || 0).getTime();
-              const useRt = rtTime >= existingTime;
+              const ltTime = new Date(lt.updated_at || lt.created_at || 0).getTime();
+              const useRt = rtTime >= ltTime;
 
-              mergedMap.set(key, {
-                ...existing,
+              mergedMap.set(ltKey, {
+                ...lt,
                 ...rt,
-                customer_name: (rt.customer_name && rt.customer_name !== 'Customer') ? rt.customer_name : existing.customer_name,
-                customer_email: rt.customer_email || existing.customer_email,
-                subject: (rt.subject && String(rt.subject).trim()) ? rt.subject : (existing.subject || rt.subject),
-                description: (rt.description && String(rt.description).trim()) ? rt.description : existing.description,
-                category: rt.category || existing.category || 'General Inquiry',
-                customer_id: rt.customer_id || existing.customer_id,
-                raised_by_user_id: (rt.raised_by_user_id && rt.raised_by_user_id !== 'usr_agent_01') ? rt.raised_by_user_id : existing.raised_by_user_id,
-                raised_by_name: rt.raised_by_name || existing.raised_by_name || existing.customer_name,
-                assigned_to_name: rt.assigned_to_name !== undefined ? rt.assigned_to_name : existing.assigned_to_name,
-                assigned_to_email: rt.assigned_to_email !== undefined ? rt.assigned_to_email : existing.assigned_to_email,
-                assigned_to_id: rt.assigned_to_id !== undefined ? rt.assigned_to_id : existing.assigned_to_id,
-                priority: rt.priority || existing.priority,
-                created_at: rt.created_at || existing.created_at,
-                status: useRt ? (rt.status || existing.status) : existing.status,
-                updated_at: useRt ? rt.updated_at : existing.updated_at,
-                notes: (rt.notes && rt.notes.length > 0) ? rt.notes : (existing.notes || []),
-                attachments: (rt.attachments && rt.attachments.length > 0) ? rt.attachments : (existing.attachments || []),
+                category: rt.category || lt.category || 'General Inquiry',
+                status: useRt ? (rt.status || lt.status) : lt.status,
+                updated_at: useRt ? rt.updated_at : lt.updated_at,
+                notes: (rt.notes && rt.notes.length > 0) ? rt.notes : (lt.notes || []),
+                attachments: (rt.attachments && rt.attachments.length > 0) ? rt.attachments : (lt.attachments || []),
+                _isOptimistic: false,
               });
             }
           });
 
-          _localTickets = Array.from(mergedMap.values()).filter((t) => {
+          _localTickets = dedupTicketsList(Array.from(mergedMap.values()).filter((t) => {
             const tid = (t.ticket_id || '').replace(/^#/, '').toUpperCase();
             const cid = (t.customer_id || '').toUpperCase().trim();
             const cEmail = (t.customer_email || '').toLowerCase().trim();
             if (_deletedIds.has(tid) || _deletedIds.has(`#${tid}`)) return false;
             if (_deletedCustomerIds.has(cid) || _deletedCustomerIds.has(cEmail.toUpperCase())) return false;
             return true;
-          });
+          }));
           _localTickets.sort((a, b) => {
             const tA = new Date(a.created_at).getTime() || 0;
             const tB = new Date(b.created_at).getTime() || 0;
             return tB - tA;
           });
+          persistLocalTickets();
 
           const filtered = filterTickets(_localTickets, { status, search, timeRange });
           onUpdate(filtered);
@@ -833,7 +731,7 @@ function filterTickets(tickets, { status, search, customer_id, timeRange }) {
     });
   }
 
-  return res;
+  return dedupTicketsList(res);
 }
 
 /**
@@ -1115,20 +1013,16 @@ export function subscribeTicketDetail(ticketId, onUpdate, onError) {
  * Create a new ticket directly in Backend REST API and Firestore.
  */
 export async function createTicket(ticketData) {
-  const ticketId = ticketData.ticket_id || generateTicketId(_localTickets);
-  clearTicketTombstone(ticketId);
   if (ticketData.customer_id || ticketData.customer_email) {
     clearCustomerTombstone(ticketData.customer_id, ticketData.customer_email);
   }
-  updateTicketSeq(ticketId);
   const nowIso = new Date().toISOString();
 
   const customerId = ticketData.customer_id || `CUST-${String(_localTickets.length + 1).padStart(3, '0')}`;
   const raisedBy = ticketData.raised_by_user_id || auth?.currentUser?.uid || 'usr_agent_01';
   const raisedByName = ticketData.raised_by_name || ticketData.customer_name || 'Customer';
 
-  const newTicket = {
-    ticket_id: ticketId,
+  const payload = {
     customer_id: customerId,
     raised_by_user_id: raisedBy,
     raised_by_name: raisedByName,
@@ -1146,52 +1040,62 @@ export async function createTicket(ticketData) {
     created_at: nowIso,
     updated_at: nowIso,
     notes: ticketData.notes || [],
-    _isOptimistic: true,
   };
 
-  // Immediate optimistic addition (<1ms)
-  _localTickets = [newTicket, ..._localTickets.filter((t) => t.ticket_id !== ticketId)];
-  notifyLocalListeners();
+  if (ticketData.ticket_id) {
+    payload.ticket_id = ticketData.ticket_id;
+  }
 
-  let resolvedTicket = newTicket;
+  let resolvedTicket = null;
 
-  // 1. Sync to Backend REST API so any user ID, browser, or curl can immediately access it
+  // 1. Sync to Backend REST API to obtain authoritative sequential ticket_id
   try {
     const headers = await getAuthHeaders();
     const res = await fetch(`${API_BASE_URL}/api/tickets`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(newTicket),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       const created = await res.json();
       if (created && created.ticket_id) {
-        clearTicketTombstone(created.ticket_id);
-        updateTicketSeq(created.ticket_id);
-        resolvedTicket = { ...newTicket, ...created, _isOptimistic: false };
-        const idx = _localTickets.findIndex((t) => t.ticket_id === ticketId || t.ticket_id === created.ticket_id);
-        if (idx !== -1) {
-          _localTickets[idx] = resolvedTicket;
-        } else {
-          _localTickets = [resolvedTicket, ..._localTickets];
-        }
-        notifyLocalListeners();
+        resolvedTicket = { ...payload, ...created, _isOptimistic: false };
       }
     } else {
       const errData = await res.json().catch(() => ({}));
-      if (res.status === 422 && errData.detail) {
-        const msg = Array.isArray(errData.detail)
-          ? errData.detail.map((d) => d.msg || d.message).join(', ')
-          : errData.detail;
-        throw new Error(msg);
-      }
+      const msg = Array.isArray(errData.detail)
+        ? errData.detail.map((d) => d.msg || d.message).join(', ')
+        : errData.detail || `Server error (${res.status})`;
+      throw new Error(msg);
     }
   } catch (err) {
-    console.debug('[StrawCRM] Background backend sync:', err?.message);
-    if (err.message && !err.message.includes('fetch')) {
-      throw err;
-    }
+    console.warn('[StrawCRM] Backend createTicket error:', err?.message);
+    throw err;
   }
+
+  if (!resolvedTicket || !resolvedTicket.ticket_id) {
+    throw new Error('Failed to create ticket on server.');
+  }
+
+  const realId = (resolvedTicket.ticket_id || '').replace(/^#/, '').toUpperCase();
+  clearTicketTombstone(realId);
+  updateTicketSeq(realId);
+
+  // Remove any pre-existing copy with this ID or identical email + subject
+  const newFp = `${(resolvedTicket.customer_email || '').toLowerCase().trim()}:::${(resolvedTicket.subject || '').toLowerCase().trim()}`;
+  _localTickets = _localTickets.filter((t) => {
+    const tid = (t.ticket_id || '').replace(/^#/, '').toUpperCase();
+    if (tid === realId) return false;
+    if (t._isOptimistic) {
+      const tFp = `${(t.customer_email || '').toLowerCase().trim()}:::${(t.subject || '').toLowerCase().trim()}`;
+      if (tFp === newFp) return false;
+    }
+    return true;
+  });
+
+  _localTickets = dedupTicketsList([resolvedTicket, ..._localTickets]);
+  persistLocalTickets();
+  notifyLocalListeners();
 
   // 2. Sync to Firestore in background (gracefully catches quota errors)
   if (db) {

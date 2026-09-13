@@ -291,14 +291,12 @@ export default function Tickets({ onNavigate }) {
   // Helper to determine if a ticket is assigned to the current user
   const isAssignedToCurrentUser = (t) => {
     if (!user || !t) return false;
+    // Match by exact agent ID (most reliable)
     if (user.id && t.assigned_to_id && String(user.id) === String(t.assigned_to_id)) return true;
+    // Match by exact email only (not substring/fuzzy name match to avoid false positives)
     const userEmail = (user.email || '').toLowerCase().trim();
-    const userName = (user.displayName || '').toLowerCase().trim();
     const assignedEmail = (t.assigned_to_email || '').toLowerCase().trim();
-    const assignedName = (t.assigned_to_name || '').toLowerCase().trim();
-
     if (userEmail && assignedEmail && userEmail === assignedEmail) return true;
-    if (userName && assignedName && (assignedName === userName || assignedName.includes(userName) || userName.includes(assignedName))) return true;
     return false;
   };
 
