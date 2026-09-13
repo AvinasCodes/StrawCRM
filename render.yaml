@@ -24,6 +24,12 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         value: REDACTED_GEMINI_BACKEND_KEY
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: avinash48as@gmail.com
+      - key: BREVO_SENDER_NAME
+        value: StrawCRM Notifications
       - key: RESEND_API_KEY
         value: REDACTED_RESEND_API_KEY
       - key: RESEND_FROM

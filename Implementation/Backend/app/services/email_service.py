@@ -181,6 +181,59 @@ class EmailService:
 </html>"""
 
     @classmethod
+    def _send_brevo(cls, to_email: str, subject: str, body_text: str, body_html: str) -> bool:
+        brevo_key = (os.getenv("BREVO_API_KEY") or getattr(settings, "BREVO_API_KEY", "") or "").strip()
+        if not brevo_key:
+            return False
+
+        sender_email = (os.getenv("BREVO_SENDER_EMAIL") or getattr(settings, "BREVO_SENDER_EMAIL", "") or "avinash48as@gmail.com").strip()
+        sender_name = (os.getenv("BREVO_SENDER_NAME") or getattr(settings, "BREVO_SENDER_NAME", "") or "StrawCRM Notifications").strip()
+
+        payload = {
+            "sender": {
+                "name": sender_name,
+                "email": sender_email,
+            },
+            "to": [
+                {
+                    "email": to_email,
+                }
+            ],
+            "subject": subject,
+            "htmlContent": body_html,
+            "textContent": body_text,
+        }
+
+        import urllib.request
+        import urllib.error
+        import json
+
+        try:
+            req = urllib.request.Request(
+                "https://api.brevo.com/v3/smtp/email",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "api-key": brevo_key,
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "User-Agent": "StrawCRM-Backend/1.0",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                if resp.status in (200, 201):
+                    res_body = json.loads(resp.read().decode("utf-8"))
+                    logger.info("[EmailService (Brevo)] Live email successfully dispatched to %s (messageId: %s)", to_email, res_body.get("messageId"))
+                    return True
+        except urllib.error.HTTPError as err:
+            err_text = err.read().decode("utf-8", errors="replace")
+            logger.error("[EmailService (Brevo)] HTTP error %s for recipient %s: %s", err.code, to_email, err_text)
+        except Exception as e:
+            logger.error("[EmailService (Brevo)] Network dispatch error for %s: %s", to_email, e)
+
+        return False
+
+    @classmethod
     def _send_resend(cls, to_email: str, subject: str, body_text: str, body_html: str) -> bool:
         resend_key = (os.getenv("RESEND_API_KEY") or getattr(settings, "RESEND_API_KEY", "") or "").strip()
         if not resend_key:
@@ -260,7 +313,11 @@ class EmailService:
             logger.warning("[EmailService] Invalid recipient email address: '%s'", to_email)
             return False
 
-        # 1. Primary Cloud Provider: Resend HTTPS REST API (Port 443 - never blocked by Render)
+        # 1. Primary Cloud Provider: Brevo HTTPS REST API (Port 443 - free 300/day, sends to ANY inbox)
+        if cls._send_brevo(to_email, subject, body_text, body_html):
+            return True
+
+        # 2. Secondary Cloud Provider: Resend HTTPS REST API (Port 443)
         if cls._send_resend(to_email, subject, body_text, body_html):
             return True
 

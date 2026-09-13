@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = Field(default="", alias="GEMINI_API_KEY")
 
     # Email & SMTP Configuration (Gmail SMTP / Standard Library smtplib)
+    # Brevo (Sendinblue) HTTPS REST API (Primary for cloud sending to arbitrary recipients)
+    BREVO_API_KEY: str = Field(default="", alias="BREVO_API_KEY")
+    BREVO_SENDER_EMAIL: str = Field(default="avinash48as@gmail.com", alias="BREVO_SENDER_EMAIL")
+    BREVO_SENDER_NAME: str = Field(default="StrawCRM Notifications", alias="BREVO_SENDER_NAME")
+
+    # Resend HTTPS REST API
     RESEND_API_KEY: str = Field(default="REDACTED_RESEND_API_KEY", alias="RESEND_API_KEY")
     RESEND_FROM: str = Field(default="StrawCRM <onboarding@resend.dev>", alias="RESEND_FROM")
     SMTP_HOST: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
