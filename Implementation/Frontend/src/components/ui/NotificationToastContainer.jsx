@@ -96,17 +96,22 @@ export default function NotificationToastContainer({ onOpenTicket }) {
 
                     {/* Resend Sandbox Alert Banner */}
                     {toast.emailDispatched && toast.recipientEmail?.toLowerCase() !== 'avinash48as@gmail.com' && (
-                      <div className="bg-amber-50/95 border border-amber-200 rounded-xl p-2.5 text-[11px] leading-relaxed text-amber-900 shadow-xs animate-in fade-in duration-200">
-                        <div className="flex items-center gap-1.5 font-bold text-amber-950 mb-1">
+                      <div className="bg-amber-50/95 border border-amber-200 rounded-xl p-3 text-[11px] leading-relaxed text-amber-950 shadow-xs animate-in fade-in duration-200">
+                        <div className="flex items-center gap-1.5 font-bold text-amber-950 mb-1.5">
                           <span className="text-xs">⚠️</span>
-                          <span>Resend Sandbox Mode Notice</span>
+                          <span className="tracking-tight uppercase text-[10px] font-extrabold">Resend Sandbox Policy Active</span>
                         </div>
-                        <p className="text-slate-700 font-medium">
-                          Mail registered address (<strong className="text-slate-900 font-bold">avinash48as@gmail.com</strong>) par route hua hai with <code className="bg-amber-100 text-amber-950 px-1 py-0.2 rounded font-mono text-[10px] font-bold">[For {toast.recipientEmail}]</code> tag.
+                        <p className="text-slate-800 font-medium">
+                          Email redirected to verified account owner (<strong className="text-slate-950 font-bold">avinash48as@gmail.com</strong>) tagged with <code className="bg-amber-100 text-amber-950 px-1 py-0.5 rounded font-mono text-[10px] font-bold">[For {toast.recipientEmail}]</code>.
                         </p>
-                        <p className="text-[10px] text-amber-800 font-normal mt-1 border-t border-amber-200/60 pt-1">
-                          * Resend Sandbox criteria ke kaaran bina custom domain verify kiye external inboxes par direct delivery restricted rehti hai.
-                        </p>
+                        <div className="text-[10.5px] text-amber-900 font-medium mt-2 border-t border-amber-200/70 pt-1.5 space-y-1">
+                          <div>
+                            <strong>Delivery Criteria:</strong> Resend free tier restricts outbound delivery strictly to the registered account owner until a custom domain is verified.
+                          </div>
+                          <div className="text-[10px] text-amber-800">
+                            <strong>To deliver directly to any agent inbox:</strong> Add &amp; verify your custom domain at <span className="font-mono underline font-semibold">resend.com/domains</span>.
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
