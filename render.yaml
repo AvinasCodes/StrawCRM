@@ -23,7 +23,7 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: GEMINI_API_KEY
-        value: REDACTED_GEMINI_BACKEND_KEY
+        sync: false
       - key: BREVO_API_KEY
         sync: false
       - key: BREVO_SENDER_EMAIL
@@ -31,7 +31,7 @@ services:
       - key: BREVO_SENDER_NAME
         value: StrawCRM Notifications
       - key: RESEND_API_KEY
-        value: REDACTED_RESEND_API_KEY
+        sync: false
       - key: RESEND_FROM
         value: StrawCRM <onboarding@resend.dev>
       - key: SMTP_HOST
@@ -41,7 +41,7 @@ services:
       - key: SMTP_USER
         value: avinash48as@gmail.com
       - key: SMTP_PASSWORD
-        value: REDACTED_SMTP_PASSWORD
+        sync: false
       - key: SMTP_FROM_NAME
         value: StrawCRM Notifications
 
@@ -62,7 +62,7 @@ services:
       - key: VITE_API_BASE_URL
         value: https://strawcrm-backend.onrender.com
       - key: VITE_FIREBASE_API_KEY
-        value: REDACTED_FIREBASE_API_KEY
+        sync: false
       - key: VITE_FIREBASE_AUTH_DOMAIN
         value: strawcrm-98ee3.firebaseapp.com
       - key: VITE_FIREBASE_PROJECT_ID
@@ -76,4 +76,4 @@ services:
       - key: VITE_FIREBASE_MEASUREMENT_ID
         value: G-LGSB4TPGVQ
       - key: VITE_GEMINI_API_KEY
-        value: REDACTED_GEMINI_FRONTEND_KEY
+        sync: false

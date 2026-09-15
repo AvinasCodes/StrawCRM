@@ -2,7 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY || 'REDACTED_FIREBASE_API_KEY',
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY || '',
   authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'strawcrm-98ee3.firebaseapp.com',
   projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID || 'strawcrm-98ee3',
   storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'strawcrm-98ee3.firebasestorage.app',

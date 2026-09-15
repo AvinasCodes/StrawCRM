@@ -27,12 +27,12 @@ class Settings(BaseSettings):
     BREVO_SENDER_NAME: str = Field(default="StrawCRM Notifications", alias="BREVO_SENDER_NAME")
 
     # Resend HTTPS REST API
-    RESEND_API_KEY: str = Field(default="REDACTED_RESEND_API_KEY", alias="RESEND_API_KEY")
+    RESEND_API_KEY: str = Field(default="", alias="RESEND_API_KEY")
     RESEND_FROM: str = Field(default="StrawCRM <onboarding@resend.dev>", alias="RESEND_FROM")
     SMTP_HOST: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     SMTP_PORT: int = Field(default=587, alias="SMTP_PORT")
     SMTP_USER: str = Field(default="avinash48as@gmail.com", alias="SMTP_USER")
-    SMTP_PASSWORD: str = Field(default="REDACTED_SMTP_PASSWORD", alias="SMTP_PASSWORD")
+    SMTP_PASSWORD: str = Field(default="", alias="SMTP_PASSWORD")
     SMTP_FROM_NAME: str = Field(default="StrawCRM Notifications", alias="SMTP_FROM_NAME")
 
     # Security & CORS
