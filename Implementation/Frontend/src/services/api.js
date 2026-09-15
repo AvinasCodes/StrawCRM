@@ -281,6 +281,7 @@ async function callDirectGemini(prompt) {
     throw new Error('VITE_GEMINI_API_KEY is not configured in .env');
   }
   for (const model of [
+    'gemini-3.6-flash',
     'gemini-3.5-flash-lite',
     'gemini-3.5-flash',
     'gemini-flash-lite-latest',
