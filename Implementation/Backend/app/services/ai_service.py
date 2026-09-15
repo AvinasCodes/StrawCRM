@@ -70,7 +70,7 @@ class AIService:
         api_key = (
             os.getenv("GEMINI_API_KEY")
             or settings.GEMINI_API_KEY
-            or "REDACTED_GEMINI_BACKEND_KEY"
+            or ""
         ).strip()
         if not api_key:
             raise HTTPException(
